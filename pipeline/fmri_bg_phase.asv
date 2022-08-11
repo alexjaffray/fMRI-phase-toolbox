@@ -82,7 +82,7 @@ p = reshape(inputImage,prod(imSize),s(4));
 
 [U,S,V] = svd(double(p),"econ");
 
-% Take the first 5 components of the SVD
+%% Take the first 5 components of the SVD
 
 % first component
 componentVector = 1;
@@ -146,87 +146,12 @@ timeVector = 0:TR/interpolationFactor:s(4)*TR;
 timeVector = timeVector(1:s(4)*interpolationFactor);
 
 
-%% Define Ranges in the slice to look at Fluctuation and calculate roi means
-
-selectedSlice = 29;
-
-width = 8;
-height = 20;
-xmin = 40;
-ymin = 36;
-
-range2 = xmin:(xmin+height);
-range1 = ymin:(ymin+width);
-
-
-d0 = getROImean(interpAbs,range2,range1,selectedSlice,TR/interpolationFactor);
-d1 = getROImean(interpTime1,range2,range1,selectedSlice,TR/interpolationFactor);
-d2 = getROImean(interpTime2,range2,range1,selectedSlice,TR/interpolationFactor);
-d3 = getROImean(interpTime3,range2,range1,selectedSlice,TR/interpolationFactor);
-d4 = getROImean(interpTime4,range2,range1,selectedSlice,TR/interpolationFactor);
-d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
-
-
-%% Define axesranges for the plotting
-
-
-dataMin = min(d0,[],'all');
-dataMax = max(d0,[],'all');
-dataRange = dataMax - dataMin;
-dlim = [0 0];
-
-if dataMin < 0
-    
-    dlim(1) = dataMin - dataRange;
-    dlim(2) = 2*dataRange;
-    
-else
-    dlim(1) = -2*dataRange;
-    dlim(2) = dataMax + dataRange;
-end
-
-
-%% Plot the first 5 SVD coefficients in the region of interest defined by range2 and range1
-
-close all;
-
-figure();
-set(gcf,'Position',[100 100 2000 750])
-subplot(1,2,1);
-imagesc(interpAbs(:,:,selectedSlice,1));
-title('Image with ROI');
-xlabel('x-axis');
-ylabel('y-axis');
-colormap(gray);
-ax = gca;
-hold on;
-
-roi = drawrectangle(ax,'Position',[xmin,ymin,width,height]);
-
-subplot(1,2,2);
-plot(timeVector,d0,'Color','black','LineStyle','-.');
-hold on;
-plot(timeVector,d1,'Color','red');
-hold on;
-plot(timeVector,d2,'Color','blue');
-hold on;
-plot(timeVector,d3,'Color','black');
-hold on;
-plot(timeVector,d4,'Color','cyan');
-hold on;
-plot(timeVector,d5,'Color','magenta');
-
-title('Field Fluctuations: Original Image and First 5 SVD Coefficients');
-xlabel('Time (s)');
-ylabel('Field Fluctuations (ppm)');
-
-axis([timeVector(1) timeVector(end) dlim(1) dlim(2)]);
-
-legend('Original Image','1st Component','2nd Component','3rd Component','4th Component','5th Component');
+%% Select a Slice
+selectedSlice = 25;
 
 %% Show the variation of the data in real time by dynamic plotting or single plotting
 
-doDynamicPlot = true;
+doDynamicPlot = false;
 
 if doDynamicPlot
 
@@ -269,11 +194,85 @@ if doDynamicPlot
 
 end
 
+%% Define Ranges in the slice to look at Fluctuation and calculate roi means
+
+width = 8;
+height = 20;
+xmin = 61;
+ymin = 36;
+
+range2 = xmin:(xmin+height);
+range1 = ymin:(ymin+width);
+
+
+d0 = getROImean(interpAbs,range2,range1,selectedSlice,TR/interpolationFactor);
+d1 = getROImean(interpTime1,range2,range1,selectedSlice,TR/interpolationFactor);
+d2 = getROImean(interpTime2,range2,range1,selectedSlice,TR/interpolationFactor);
+d3 = getROImean(interpTime3,range2,range1,selectedSlice,TR/interpolationFactor);
+d4 = getROImean(interpTime4,range2,range1,selectedSlice,TR/interpolationFactor);
+d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
+
+
+%% Define axesranges for the plotting
+
+
+dataMin = min(d0,[],'all');
+dataMax = max(d0,[],'all');
+dataRange = dataMax - dataMin;
+dlim = [0 0];
+
+if dataMin < 0
+    
+    dlim(1) = dataMin - dataRange;
+    dlim(2) = 2*dataRange;
+    
+else
+    dlim(1) = -2*dataRange;
+    dlim(2) = dataMax + dataRange;
+end
+
+
+%% Plot the first 5 SVD coefficients in the region of interest defined by range2 and range1
+
+close all;
+
+figure(18);
+set(gcf,'Position',[100 100 2000 750])
+subplot(1,2,1);
+imagesc(interpAbs(:,:,selectedSlice,1));
+title('Image with ROI');
+xlabel('x-axis');
+ylabel('y-axis');
+colormap(gray);
+ax = gca;
+hold on;
+drawrectangle(ax,'Position',[xmin,ymin,width,height]);
+
+subplot(1,2,2);
+plot(timeVector,d0,'Color','black','LineStyle','-.');
+hold on;
+plot(timeVector,d1,'Color','red');
+hold on;
+plot(timeVector,d2,'Color','blue');
+hold on;
+plot(timeVector,d3,'Color','black');
+hold on;
+plot(timeVector,d4,'Color','cyan');
+hold on;
+plot(timeVector,d5,'Color','magenta');
+
+title('Field Fluctuations: Original Image and First 5 SVD Coefficients');
+xlabel('Time (s)');
+ylabel('Field Fluctuations (ppm)');
+
+axis([timeVector(1) timeVector(end) dlim(1) dlim(2)]);
+
+legend('Original Image','1st Component','2nd Component','3rd Component','4th Component','5th Component');
 
 %% Plot the singular values
 
 figure();
-set(gcf,'Position',[100 100 1500 1000]);
+set(gcf,'Position',[100 100 1500 1000])
 plot(1:s(4),S*ones(s(4),1));
 title('Singular Values');
 xlabel('Singular Value Number');
@@ -297,7 +296,7 @@ legend('Delta X','Minima');
 
 %% Plot the standard deviation of the qsm values obtained throughout the acquisition
 
-xRange = std(uphas,0,4);
+xRange = std(x,4) .^2;
 figure();
-imagesc(xRange(:,:,25)),colormap('hot'),caxis([0 0.05]);
+imagesc(xRange(:,:,32)),colormap('hot'),caxis([0 0.05]);
 colorbar;
