@@ -1,0 +1,9 @@
+function [f, t] = getROImean(vol,roi)
+%getROImean gets the time evolution of the region of interest inside of vol
+%  vol: 4D data [3d spatial] x [1d time] -> [Nx Ny Nz Nt]
+%  roi: vector with range of indices [3d spatial] 
+%  f: mean of vol(roi) at each time point
+%  t: 
+
+end
+
