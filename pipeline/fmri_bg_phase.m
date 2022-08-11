@@ -16,6 +16,7 @@ close all;
 run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where the QSM toolbox is stored
 
 %% Get magnitude and phase data from the nifti files
+
 [angleFile,angleDir] = uigetfile("*.nii");
 [magFile,magDir] = uigetfile("*.nii");
 
@@ -23,14 +24,17 @@ angleData = niftiread(fullfile(angleDir,angleFile));
 magnitudeData = niftiread(fullfile(magDir,magFile));
 
 %% Read in scan info
+
 scaninfo = niftiinfo(fullfile(angleDir,angleFile));
 
 %% Set these based on the parameters of the imaging experiment (HARDCODED for now!)
+
 TE = 0.03; %[s] 
 B0 = 3.0; %[T]
 GYRO = 267.513; %[rad/s/uT]
 
 %% Voxel size, b0 direction and image size
+
 vsz = scaninfo.PixelDimensions(1:3); %[mm]
 bdir = [0 0 1]; %[arbitrary]
 s = scaninfo.ImageSize;
@@ -38,25 +42,30 @@ imSize = [s(1),s(2),s(3)]; %[voxels]
 TR = scaninfo.PixelDimensions(4);
 
 %% Generate the mask from the last timepoint magnitude
+
 mask = generateMask(magnitudeData(:,:,:,end), vsz, '-m -n -f 0.5');
 
 %% Convert from Int16 to phase 
+
 phas = double(angleData) ./ 2048 * pi - pi;
 
 %% Do the laplacian unwrapping and rescale to units of field
+
 uphas = unwrapLaplacian(phas,mask,vsz);
 uphas = uphas ./ (B0 * GYRO * TE);
 
 %% Background field removal
+
 [fl, mask1] = resharp(uphas, mask, vsz,9:-2*max(vsz):2*max(vsz), 0.05);
 
 %% Susceptibility map calculation
+
 x = rts(fl,mask1,vsz,bdir);
 
 %% Choose inputImage and Reshape to prepare for the SVD
 inputImage = zeros(size(uphas));
 
-imageType = "chi";
+imageType = "localField";
 
 switch imageType
     case "chi"
@@ -69,7 +78,7 @@ end
 
 p = reshape(inputImage,prod(imSize),s(4));
 
-%% Decompose the X Map using the SVD
+%% Decompose the Image using the SVD
 [U,S,V] = svd(double(p),"econ");
 
 %% Take the first 5 components of the SVD
@@ -95,18 +104,40 @@ componentVector = 5;
 comp5 = recomposeSVD(U,S,V,componentVector,imSize);
 
 %% Interpolate whole volume using zero-filling along the time dimension to help visualize things
+doInterpolation = false;
 
-interpolationFactor = 3;
+interpAbs = [];
+interpTime1 = [];
+interpTime2 = [];
+interpTime3 = [];
+interpTime4 = [];
+interpTime5 = [];
 
-% interpolate the original X map
-interpAbs = interpft(inputImage,260*interpolationFactor,4); 
+interpolationFactor = 1;
 
-% interpolate the 5 SVD components
-interpTime1 = interpft(comp1,260*interpolationFactor,4);
-interpTime2 = interpft(comp2,260*interpolationFactor,4);
-interpTime3 = interpft(comp3,260*interpolationFactor,4);
-interpTime4 = interpft(comp4,260*interpolationFactor,4);
-interpTime5 = interpft(comp5,260*interpolationFactor,4);
+if doInterpolation
+
+    interpolationFactor = 2;
+
+    % interpolate the original image in time
+    interpAbs = interpft(inputImage,s(4)*interpolationFactor,4); 
+
+    % interpolate the 5 SVD components in time
+    interpTime1 = interpft(comp1,s(4)*interpolationFactor,4);
+    interpTime2 = interpft(comp2,s(4)*interpolationFactor,4);
+    interpTime3 = interpft(comp3,s(4)*interpolationFactor,4);
+    interpTime4 = interpft(comp4,s(4)*interpolationFactor,4);
+    interpTime5 = interpft(comp5,s(4)*interpolationFactor,4);
+
+else
+   
+    interpAbs = inputImage;
+    interpTime1 = comp1;
+    interpTime2 = comp2;
+    interpTime3 = comp3;
+    interpTime4 = comp4;
+    interpTime5 = comp5;
+end
 
 %% Create the time vector from the interpolated data
 
@@ -119,7 +150,7 @@ selectedSlice = 28;
 
 %% Show the variation of the data in real time by dynamic plotting or single plotting
 
-doDynamicPlot = true;
+doDynamicPlot = false;
 
 if doDynamicPlot
 
@@ -128,7 +159,7 @@ if doDynamicPlot
     %vidfile = VideoWriter('testmovieCHI.avi');
     %open(vidfile);
 
-    for ind = 1:260*interpolationFactor
+    for ind = 1:s(4)*interpolationFactor
         subplot(2,3,1);
         im = squeeze(interpAbs(:,:,selectedSlice,ind));
         imagesc(im),colormap(gray),caxis([-0.05,0.05]),colorbar;

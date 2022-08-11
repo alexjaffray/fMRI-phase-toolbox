@@ -54,8 +54,18 @@ uphas = uphas ./ (B0 * GYRO * TE);
 x = rts(fl,mask1,vsz,bdir);
 
 %% Choose inputImage and Reshape to prepare for the SVD
+inputImage = zeros(size(uphas));
 
-inputImage = uphas;
+imageType = "chi";
+
+switch imageType
+    case "chi"
+        inputImage = x;
+    case "totalField"
+        inputImage = uphas;
+    case "localField"
+        inputImage = fl;
+end
 
 p = reshape(inputImage,prod(imSize),s(4));
 
@@ -89,7 +99,7 @@ comp5 = recomposeSVD(U,S,V,componentVector,imSize);
 interpolationFactor = 3;
 
 % interpolate the original X map
-interpAbs = interpft(fl,260*interpolationFactor,4); 
+interpAbs = interpft(inputImage,s(4)*interpolationFactor,4); 
 
 % interpolate the 5 SVD components
 interpTime1 = interpft(comp1,260*interpolationFactor,4);
@@ -156,8 +166,8 @@ end
 
 width = 3;
 height = 3;
-xmin = 30;
-ymin = 46;
+xmin = 55;
+ymin = 42;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
@@ -169,19 +179,44 @@ d2 = getROImean(interpTime2,range2,range1,selectedSlice,1.15/interpolationFactor
 d3 = getROImean(interpTime3,range2,range1,selectedSlice,1.15/interpolationFactor);
 d4 = getROImean(interpTime4,range2,range1,selectedSlice,1.15/interpolationFactor);
 d5 = getROImean(interpTime5,range2,range1,selectedSlice,1.15/interpolationFactor);
+
+
+%% Define axesranges for the plotting
+
+
+dataMin = min(d0,[],'all');
+dataMax = max(d0,[],'all');
+dataRange = dataMax - dataMin;
+dlim = [0 0];
+
+if dataMin < 0
+    
+    dlim(1) = dataMin - dataRange;
+    dlim(2) = 2*dataRange;
+    
+else
+    dlim(1) = -2*dataRange;
+    dlim(2) = dataMax + dataRange;
+end
+
+
 %% Plot the first 5 SVD coefficients in the region of interest defined by range2 and range1
 
+close all;
+
 figure(18);
-set(gcf,'Position',[100 100 1500 1000])
+set(gcf,'Position',[100 100 2000 750])
+subplot(1,2,1);
 imagesc(interpAbs(:,:,selectedSlice,1));
+title('Image with ROI');
+xlabel('x-axis');
+ylabel('y-axis');
 colormap(gray);
 ax = gca;
 hold on;
 drawrectangle(ax,'Position',[xmin,ymin,width,height]);
 
-figure(20);
-set(gcf,'Position',[100 100 1500 1000])
-
+subplot(1,2,2);
 plot(timeVector,d0,'Color','black','LineStyle','-.');
 hold on;
 plot(timeVector,d1,'Color','red');
@@ -198,8 +233,7 @@ title('Field Fluctuations: Original Image and First 5 SVD Coefficients');
 xlabel('Time (s)');
 ylabel('Field Fluctuations (ppm)');
 
-
-axis([0 1.15*259 -0.05 0.05]);
+axis([timeVector(1) timeVector(end) dlim(1) dlim(2)]);
 
 legend('Original Image','1st Component','2nd Component','3rd Component','4th Component','5th Component');
 
