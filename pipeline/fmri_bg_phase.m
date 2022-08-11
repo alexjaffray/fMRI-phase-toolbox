@@ -65,7 +65,7 @@ x = rts(fl,mask1,vsz,bdir);
 %% Choose inputImage and Reshape to prepare for the SVD
 inputImage = zeros(size(uphas));
 
-imageType = "localField";
+imageType = "totalField";
 
 switch imageType
     case "chi"
@@ -146,7 +146,7 @@ timeVector = timeVector(1:s(4)*interpolationFactor);
 
 
 %% Select a Slice
-selectedSlice = 28;
+selectedSlice = 32;
 
 %% Show the variation of the data in real time by dynamic plotting or single plotting
 
@@ -195,21 +195,21 @@ end
 
 %% Define Ranges in the slice to look at Fluctuation and calculate roi means
 
-width = 3;
-height = 3;
-xmin = 55;
-ymin = 42;
+width = 8;
+height = 20;
+xmin = 51;
+ymin = 36;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
 
 
-d0 = getROImean(interpAbs,range2,range1,selectedSlice,1.15/interpolationFactor);
-d1 = getROImean(interpTime1,range2,range1,selectedSlice,1.15/interpolationFactor);
-d2 = getROImean(interpTime2,range2,range1,selectedSlice,1.15/interpolationFactor);
-d3 = getROImean(interpTime3,range2,range1,selectedSlice,1.15/interpolationFactor);
-d4 = getROImean(interpTime4,range2,range1,selectedSlice,1.15/interpolationFactor);
-d5 = getROImean(interpTime5,range2,range1,selectedSlice,1.15/interpolationFactor);
+d0 = getROImean(interpAbs,range2,range1,selectedSlice,TR/interpolationFactor);
+d1 = getROImean(interpTime1,range2,range1,selectedSlice,TR/interpolationFactor);
+d2 = getROImean(interpTime2,range2,range1,selectedSlice,TR/interpolationFactor);
+d3 = getROImean(interpTime3,range2,range1,selectedSlice,TR/interpolationFactor);
+d4 = getROImean(interpTime4,range2,range1,selectedSlice,TR/interpolationFactor);
+d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
 
 
 %% Define axesranges for the plotting
