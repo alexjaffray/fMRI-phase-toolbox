@@ -17,8 +17,8 @@ run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where
 
 %% Get magnitude and phase data from the nifti files
 
-[angleFile,angleDir] = uigetfile("*.nii");
-[magFile,magDir] = uigetfile("*.nii");
+[angleFile,angleDir] = uigetfile("*.nii","Select the Phase NIFTI File");
+[magFile,magDir] = uigetfile("*.nii","Select the Magnitude NIFTI File");
 
 angleData = niftiread(fullfile(angleDir,angleFile));
 magnitudeData = niftiread(fullfile(magDir,magFile));
