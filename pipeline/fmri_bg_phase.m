@@ -13,7 +13,12 @@
 clear all;
 close all;
 
+%%
+
 run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where the QSM toolbox is stored
+
+%%
+run('/srv/data/ajaffray/MRecon-5.0.11/startup.m');
 
 %% Get magnitude and phase data from the nifti files
 
@@ -22,6 +27,15 @@ run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where
 
 angleData = niftiread(fullfile(angleDir,angleFile));
 magnitudeData = niftiread(fullfile(magDir,magFile));
+
+%% dataFrom MRecon
+mreconDat = MRecon();
+mreconDat.ReadData();
+
+
+%%
+angleData = squeeze(mreconDat.Data(:,:,:,1,:,1,2));
+magnitudeData = squeeze(mreconDat.Data(:,:,:,1,:,1,1));
 
 %% Read in scan info
 
@@ -153,7 +167,7 @@ selectedSlice = 29;
 width = 8;
 height = 20;
 xmin = 40;
-ymin = 36;
+ymin = 40;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
@@ -166,6 +180,19 @@ d3 = getROImean(interpTime3,range2,range1,selectedSlice,TR/interpolationFactor);
 d4 = getROImean(interpTime4,range2,range1,selectedSlice,TR/interpolationFactor);
 d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
 
+% %% test ICA!
+% 
+% % define data
+% 
+% XDat = inputImage(range2,range1,selectedSlice,:);
+% XDatReshaped = reshape(XDat,[],size(XDat,4));
+% 
+% model = rica(XDatReshaped',6);
+% 
+% reconstructedData = transform(model, XDatReshaped');
+% 
+% figure();
+% plot(reconstructedData);
 
 %% Define axesranges for the plotting
 
@@ -226,7 +253,7 @@ legend('Original Image','1st Component','2nd Component','3rd Component','4th Com
 
 %% Show the variation of the data in real time by dynamic plotting or single plotting
 
-doDynamicPlot = true;
+doDynamicPlot = false;
 
 if doDynamicPlot
 
