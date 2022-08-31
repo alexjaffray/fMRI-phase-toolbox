@@ -25,10 +25,11 @@ run('/srv/data/ajaffray/MRecon-5.0.11/startup.m');
 [angleFile,angleDir] = uigetfile("*.nii","Select the Phase NIFTI File");
 [magFile,magDir] = uigetfile("*.nii","Select the Magnitude NIFTI File");
 
+%%
 angleData = niftiread(fullfile(angleDir,angleFile));
 magnitudeData = niftiread(fullfile(magDir,magFile));
 
-%% dataFrom MRecon
+%% data From MRecon
 mreconDat = MRecon();
 mreconDat.ReadData();
 
@@ -71,6 +72,10 @@ uphas = uphas ./ (B0 * GYRO * TE);
 %% Background field removal
 
 [fl, mask1] = resharp(uphas, mask, vsz,9:-2*max(vsz):2*max(vsz), 0.05);
+
+%% get the harmonic phase evolution
+
+harmfields = uphas - fl;
 
 %% Susceptibility map calculation
 
@@ -119,7 +124,7 @@ componentVector = 5;
 comp5 = recomposeSVD(U,S,V,componentVector,imSize);
 
 %% Interpolate whole volume using zero-filling along the time dimension to help visualize things
-doInterpolation = false;
+doInterpolation = true;
 
 interpAbs = [];
 interpTime1 = [];
@@ -162,7 +167,7 @@ timeVector = timeVector(1:s(4)*interpolationFactor);
 
 %% Define Ranges in the slice to look at Fluctuation and calculate roi means
 
-selectedSlice = 29;
+selectedSlice = 31;
 
 width = 8;
 height = 20;
@@ -310,13 +315,13 @@ set(gca,'yscale','log');
 %% Plot the time-course of the 2nd SVD coefficient and identify minima
 
 % identify the minima (for gating of breath for example)
-foundMins = islocalmin(d2,'MinProminence',0.0035);
+foundMins = islocalmin(d3,'MinProminence',0.0035);
 
 % Plot
 figure();
-plot(timeVector,d2);
+plot(timeVector,d3);
 hold on;
-scatter(timeVector(foundMins),d2(foundMins),'o');
+scatter(timeVector(foundMins),d3(foundMins),'o');
 title('2nd SVD Coefficient');
 xlabel('Time (s)');
 ylabel('Fluctuation in X map (ppm)');
