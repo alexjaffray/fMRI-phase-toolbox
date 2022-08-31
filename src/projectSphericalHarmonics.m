@@ -2,6 +2,8 @@
 
 function timecourse = projectSphericalHarmonics(phas, mask, nsamples)
 
+phas = phas - mean(phas,'all');
+
 phas = phas * 3.0 * 10^-6;
 
 phas = cumtrapz(linspace(0,260,260),phas,4);
@@ -46,7 +48,7 @@ h15 = x.^3 - 3 * x .* y.^2;
 basismatrix = [reshape(h0,flatsize,1), reshape(h1,flatsize,1), reshape(h2,flatsize,1), reshape(h3,flatsize,1),reshape(h4,flatsize,1),reshape(h5,flatsize,1),reshape(h6,flatsize,1),reshape(h7,flatsize,1),reshape(h8,flatsize,1),reshape(h9,flatsize,1),reshape(h10,flatsize,1),reshape(h11,flatsize,1),reshape(h12,flatsize,1),reshape(h13,flatsize,1),reshape(h14,flatsize,1),reshape(h15,flatsize,1)];
 reducedbasismatrix = basismatrix(approxsamples,:);
 
-Q = orth(reducedbasismatrix);
+Q = (reducedbasismatrix);
 P = Q'*Q;
 
 timecourse = zeros(s(4),16);

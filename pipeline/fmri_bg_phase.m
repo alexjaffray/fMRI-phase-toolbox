@@ -84,7 +84,7 @@ x = rts(fl,mask1,vsz,bdir);
 %% Choose inputImage and Reshape to prepare for the SVD
 inputImage = zeros(size(uphas));
 
-imageType = "totalField";
+imageType = "harmonicField";
 
 switch imageType
     case "chi"
@@ -93,6 +93,8 @@ switch imageType
         inputImage = uphas;
     case "localField"
         inputImage = fl;
+    case "harmonicField"
+        inputImage = harmfields;
 end
 
 p = reshape(inputImage,prod(imSize),s(4));
@@ -171,7 +173,7 @@ selectedSlice = 31;
 
 width = 8;
 height = 20;
-xmin = 40;
+xmin = 24;
 ymin = 40;
 
 range2 = xmin:(xmin+height);
@@ -329,7 +331,7 @@ legend('Delta X','Minima');
 
 %% Plot the standard deviation of the qsm values obtained throughout the acquisition
 
-xRange = std(uphas,0,4);
+xRange = std(fl,0,4);
 figure();
 imagesc(xRange(:,:,25)),colormap('hot'),caxis([0 0.05]);
 colorbar;
