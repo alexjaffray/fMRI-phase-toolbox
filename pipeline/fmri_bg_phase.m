@@ -173,8 +173,8 @@ selectedSlice = 31;
 
 width = 8;
 height = 20;
-xmin = 24;
-ymin = 40;
+xmin = 40;
+ymin = 50;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
@@ -335,3 +335,13 @@ xRange = std(fl,0,4);
 figure();
 imagesc(xRange(:,:,25)),colormap('hot'),caxis([0 0.05]);
 colorbar;
+
+%% Plot the processed respiratory phase (naive approach)
+filteredTrace = lowpass(d3,0.08,1/1.05);
+respPhase = calculateRespPhase(filteredTrace);
+figure();
+plot(respPhase);
+title('Respiratory Phase during FMRI Acquisition');
+xlabel('Time (s)');
+ylabel('Respiratory Phase \in [-\pi, \pi]');
+
