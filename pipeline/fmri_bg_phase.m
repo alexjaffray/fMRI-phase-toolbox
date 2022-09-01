@@ -173,8 +173,8 @@ selectedSlice = 31;
 
 width = 8;
 height = 20;
-xmin = 40;
-ymin = 50;
+xmin = 45;
+ymin = 53;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
@@ -336,12 +336,34 @@ figure();
 imagesc(xRange(:,:,25)),colormap('hot'),caxis([0 0.05]);
 colorbar;
 
-%% Plot the processed respiratory phase (naive approach)
-filteredTrace = lowpass(d3,0.08,1/1.05);
+%% Below works with the concussion study protocol only, and currently only with christina's data (i.e with MRecon)
+
+% Prepare physLog
+physLogTrace = load('data/subj01_trace.mat');
+scanStart = find(physLogTrace.ScanPsaLog20220812143118.mark>50);
+physLogResp = physLogTrace.ScanPsaLog20220812143118.resp(scanStart+1:end);
+scanTime = mreconDat.Parameter.Labels.ScanDuration;
+phaseTime = timeVector(end);
+
+samplingRate = length(physLogResp) / scanTime; 
+
+% Plot the processed respiratory phase (naive approach)
+filteredTrace = lowpass(d3,0.16,interpolationFactor/TR); % low pass filter to get the jumps out of the data
 respPhase = calculateRespPhase(filteredTrace);
 figure();
-plot(respPhase);
+plot(timeVector + (scanTime - phaseTime + TR/2),respPhase);
 title('Respiratory Phase during FMRI Acquisition');
 xlabel('Time (s)');
 ylabel('Respiratory Phase \in [-\pi, \pi]');
+hold on;
 
+% Load the physlog file and process as before (naive approach)
+resampledPhysLogTrace = resample(physLogResp,interpolationFactor,round(samplingRate*TR)); % resample to same rate as the fmri-derived resp data
+filteredPhysLogTrace = lowpass(resampledPhysLogTrace,0.16,interpolationFactor/TR); % low pass filter to remove weird data jumps
+physLogTime = linspace(0,scanTime,length(filteredPhysLogTrace));
+respPhasePhysLog = calculateRespPhase(filteredPhysLogTrace);
+plot(physLogTime,respPhasePhysLog);
+xlabel('Time (s)');
+ylabel('Respiratory Phase \in [-\pi, \pi]');
+
+legend('fMRI phase data','breathing belt data');
