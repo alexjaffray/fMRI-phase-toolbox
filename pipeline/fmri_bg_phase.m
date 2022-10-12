@@ -67,8 +67,11 @@ phas = double(angleData) ./ 2048 * pi - pi;
 %% Do the laplacian unwrapping and rescale to units of field
 
 uphas = unwrapLaplacian(phas,mask,vsz);
-uphas = uphas ./ (B0 * GYRO * TE);
+for i = 1:size(uphas,4)
+    
+    uphas(:,:,:,i) = uphas(:,:,:,i) ./ (B0 * GYRO * TE);
 
+end
 %% Background field removal
 
 [fl, mask1] = resharp(uphas, mask, vsz,9:-2*max(vsz):2*max(vsz), 0.05);
@@ -331,9 +334,9 @@ legend('Delta X','Minima');
 
 %% Plot the standard deviation of the qsm values obtained throughout the acquisition
 
-xRange = std(fl,0,4);
-figure();
-imagesc(xRange(:,:,25)),colormap('hot'),caxis([0 0.05]);
+xRange = std(harmfields,0,4);
+figure(4);
+imagesc(xRange(:,:,25)),colormap('hot'),caxis([0 1]);
 colorbar;
 
 %% Below works with the concussion study protocol only, and currently only with christina's data (i.e with MRecon)
