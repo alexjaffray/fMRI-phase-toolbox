@@ -129,7 +129,7 @@ componentVector = 5;
 comp5 = recomposeSVD(U,S,V,componentVector,imSize);
 
 %% Interpolate whole volume using zero-filling along the time dimension to help visualize things
-doInterpolation = true;
+doInterpolation = false;
 
 interpAbs = [];
 interpTime1 = [];
@@ -174,10 +174,10 @@ timeVector = timeVector(1:s(4)*interpolationFactor);
 
 selectedSlice = 31;
 
-width = 8;
-height = 20;
-xmin = 45;
-ymin = 53;
+width = 20;
+height = 10;
+xmin = 40;
+ymin = 60;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
@@ -317,16 +317,46 @@ xlabel('Singular Value Number');
 ylabel('Singular Value');
 set(gca,'yscale','log');
 
-%% Plot the time-course of the 2nd SVD coefficient and identify minima
+%% Determine component of svd corresponding to breathing flux
+respcomp = [];
 
+p1 = norm(diff(d1),1);
+p2 = norm(diff(d2),1);
+p3 = norm(diff(d3),1);
+p4 = norm(diff(d4),1);
+p5 = norm(diff(d5),1);
+
+normCheck = 0;
+if p1 > normCheck
+    respcomp = d1;
+    normCheck = p1;
+end
+if p2 > normCheck
+    respcomp = d2;
+    normCheck = p2;
+end
+if p3 > normCheck
+    respcomp = d3;
+    normCheck = p3;
+end
+if p4 > normCheck
+    respcomp = d4;
+    normCheck = p4;
+end
+if p5 > normCheck
+    respcomp = d5;
+    normCheck = p5;
+end
+
+%% Plot the time-course of the 2nd SVD coefficient and identify minima
 % identify the minima (for gating of breath for example)
-foundMins = islocalmin(d3,'MinProminence',0.0035);
+foundMins = islocalmin(respcomp,'MinProminence',0.0035);
 
 % Plot
 figure();
-plot(timeVector,d3);
+plot(timeVector,respcomp);
 hold on;
-scatter(timeVector(foundMins),d3(foundMins),'o');
+scatter(timeVector(foundMins),respcomp(foundMins),'o');
 title('2nd SVD Coefficient');
 xlabel('Time (s)');
 ylabel('Fluctuation in X map (ppm)');
@@ -336,7 +366,7 @@ legend('Delta X','Minima');
 
 xRange = std(harmfields,0,4);
 figure(4);
-imagesc(xRange(:,:,25)),colormap('hot'),caxis([0 1]);
+imagesc(xRange(:,:,25)),colormap('hot');
 colorbar;
 
 %% Below works with the concussion study protocol only, and currently only with christina's data (i.e with MRecon)
