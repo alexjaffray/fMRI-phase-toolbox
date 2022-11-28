@@ -30,13 +30,17 @@ angleData = niftiread(fullfile(angleDir,angleFile));
 magnitudeData = niftiread(fullfile(magDir,magFile));
 
 %% data From MRecon
+% filename has to be in lower case!!!
 mreconDat = MRecon();
+
+%%
 mreconDat.ReadData();
 
 
 %%
 angleData = squeeze(mreconDat.Data(:,:,:,1,:,1,2));
 magnitudeData = squeeze(mreconDat.Data(:,:,:,1,:,1,1));
+
 
 %% Read in scan info
 
@@ -129,7 +133,7 @@ componentVector = 5;
 comp5 = recomposeSVD(U,S,V,componentVector,imSize);
 
 %% Interpolate whole volume using zero-filling along the time dimension to help visualize things
-doInterpolation = false;
+doInterpolation = true;
 
 interpAbs = [];
 interpTime1 = [];
@@ -174,10 +178,10 @@ timeVector = timeVector(1:s(4)*interpolationFactor);
 
 selectedSlice = 31;
 
-width = 20;
-height = 10;
-xmin = 40;
-ymin = 60;
+width = 8;
+height = 20;
+xmin = 45;
+ymin = 53;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
@@ -204,6 +208,24 @@ d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
 % figure();
 % plot(reconstructedData);
 
+%% Plot 3 Images Side by Side
+figure();
+subplot(2,2,1);
+imagesc(phas(:,:,selectedSlice,5)); 
+xlabel('x-position [voxels]');
+ylabel('y-position [voxels]');
+subplot(2,2,2);
+imagesc(uphas(:,:,selectedSlice,5));colormap(gray)
+xlabel('x-position [voxels]');
+ylabel('y-position [voxels]');
+subplot(2,2,3);
+imagesc(fl(:,:,selectedSlice,5));colormap(gray)
+xlabel('x-position [voxels]');
+ylabel('y-position [voxels]');
+subplot(2,2,4);
+imagesc(harmfields(:,:,selectedSlice,5));colormap(gray)
+xlabel('x-position [voxels]');
+ylabel('y-position [voxels]');
 %% Define axesranges for the plotting
 
 
@@ -215,7 +237,7 @@ dlim = [0 0];
 if dataMin < 0
     
     dlim(1) = dataMin - dataRange;
-    dlim(2) = 2*dataRange;
+    dlim(2) = dataRange/2;
     
 else
     dlim(1) = -2*dataRange;
@@ -231,15 +253,14 @@ figure();
 set(gcf,'Position',[100 100 2000 750])
 subplot(1,2,1);
 imagesc(interpAbs(:,:,selectedSlice,1));
-title('Image with ROI');
-xlabel('x-axis');
-ylabel('y-axis');
+%title('Image with ROI');
+xlabel('x-position [voxels]');
+ylabel('y-position [voxels]');
 colormap(gray);
 ax = gca;
 hold on;
 
-roi = drawrectangle(ax,'Position',[xmin,ymin,width,height]);
-
+roi = drawrectangle(ax,'Position',[xmin,ymin,width,height],'Color',[1 0 0]);
 subplot(1,2,2);
 plot(timeVector,d0,'Color','black','LineStyle','-.');
 hold on;
@@ -249,17 +270,17 @@ plot(timeVector,d2,'Color','blue');
 hold on;
 plot(timeVector,d3,'Color','black');
 hold on;
-plot(timeVector,d4,'Color','cyan');
+plot(timeVector,d4,'Color','green');
 hold on;
 plot(timeVector,d5,'Color','magenta');
 
-title('Field Fluctuations: Original Image and First 5 SVD Coefficients');
-xlabel('Time (s)');
-ylabel('Field Fluctuations (ppm)');
+%title('Field Fluctuations: Original Image and First 5 SVD Coefficients');
+xlabel('Time [s]');
+ylabel('Mean Field Fluctuation in ROI [ppm]');
 
 axis([timeVector(1) timeVector(end) dlim(1) dlim(2)]);
 
-legend('Original Image','1st Component','2nd Component','3rd Component','4th Component','5th Component');
+legend('Original Image','1st Component','2nd Component','3rd Component','4th Component','5th Component', 'Location','SouthEast');
 
 %% Show the variation of the data in real time by dynamic plotting or single plotting
 
@@ -383,8 +404,9 @@ samplingRate = length(physLogResp) / scanTime;
 % Plot the processed respiratory phase (naive approach)
 filteredTrace = lowpass(d3,0.16,interpolationFactor/TR); % low pass filter to get the jumps out of the data
 respPhase = calculateRespPhase(filteredTrace);
+fmriTime = timeVector + (scanTime - phaseTime + TR/2);
 figure();
-plot(timeVector + (scanTime - phaseTime + TR/2),respPhase);
+plot(fmriTime,respPhase);
 title('Respiratory Phase during FMRI Acquisition');
 xlabel('Time (s)');
 ylabel('Respiratory Phase \in [-\pi, \pi]');
@@ -400,3 +422,18 @@ xlabel('Time (s)');
 ylabel('Respiratory Phase \in [-\pi, \pi]');
 
 legend('fMRI phase data','breathing belt data');
+
+%%
+ts1 = timeseries(respPhase,fmriTime);
+ts2 = timeseries(respPhasePhysLog,physLogTime);
+
+[tsout1,tsout2] = synchronize(ts1,ts2,'union');
+
+[peaks,locs,w] = findpeaks(tsout1.Data);
+[peaks2,locs2,w2] = findpeaks(tsout2.Data);
+
+idx2 = [1:22 24:49];
+
+rms(tsout1.Time(locs(idx2)) - tsout2.Time(locs2))
+
+
