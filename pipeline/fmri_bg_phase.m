@@ -1,9 +1,9 @@
 %% Pipeline for processing fMRI phase and magnitude data for QSM using the QSM toolbox
-% 
+%
 % fMRI presents the possibility of saving phase data, which can be used for
 % QSM or as input to other phase-sensitive MR imaging pipelines
 
-% 8 Aug 2022
+% 29 Nov 2022
 % Editors (alphabetical order):
 % Alexander Jaffray: ajaffray@physics.ubc.ca
 % Michelle Medina: mmedina002@phas.ubc.ca
@@ -14,24 +14,23 @@ clear all;
 close all;
 
 %%
-
 run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where the QSM toolbox is stored
 
 %%
 run('/srv/data/ajaffray/MRecon-5.0.11/startup.m');
 
-%%
+%% Ask for data files (.rec, .par files must have lowercase file tails)
 dataFormat = "rec";
 
 switch dataFormat
-    case "rec" 
+    case "rec"
         % data From MRecon
         % filename has to be in lower case!!!
         mreconDat = MRecon();
         mreconDat.ReadData();
         angleData = squeeze(mreconDat.Data(:,:,:,1,:,1,2));
         magnitudeData = squeeze(mreconDat.Data(:,:,:,1,:,1,1));
-
+        
     case "nifti"
         % Get magnitude and phase data from the nifti files
         [angleFile,angleDir] = uigetfile("*.nii","Select the Phase NIFTI File");
@@ -39,7 +38,6 @@ switch dataFormat
         angleData = niftiread(fullfile(angleDir,angleFile));
         magnitudeData = niftiread(fullfile(magDir,magFile));
 end
-
 
 %% Ask User for the phys log file!
 [logFile,logDir] = uigetfile("*.log","Select the Relevant PhysLog File");
@@ -52,13 +50,11 @@ physLogTable = readPhysLog(fullfile(logDir,logFile));
 scaninfo = niftiinfo(fullfile(angleDir,angleFile));
 
 %% Set these based on the parameters of the imaging experiment (HARDCODED for now!)
-
-TE = 0.03; %[s] 
+TE = 0.03; %[s]
 B0 = 3.0; %[T]
 GYRO = 267.513; %[rad/s/uT]
 
 %% Voxel size, b0 direction and image size
-
 vsz = scaninfo.PixelDimensions(1:3); %[mm]
 bdir = [0 0 1]; %[arbitrary]
 s = scaninfo.ImageSize;
@@ -66,31 +62,25 @@ imSize = [s(1),s(2),s(3)]; %[voxels]
 TR = scaninfo.PixelDimensions(4);
 
 %% Generate the mask from the last timepoint magnitude
-
 mask = generateMask(magnitudeData(:,:,:,end), vsz, '-m -n -f 0.5');
 
-%% Convert from Int16 to phase 
-
+%% Convert from Int16 to phase
 phas = double(angleData) ./ 2048 * pi - pi;
 
 %% Do the laplacian unwrapping and rescale to units of field
-
 uphas = unwrapLaplacian(phas,mask,vsz);
+
 for i = 1:size(uphas,4)
-    
     uphas(:,:,:,i) = uphas(:,:,:,i) ./ (B0 * GYRO * TE);
-
 end
-%% Background field removal
 
+%% Background field removal
 [fl, mask1] = resharp(uphas, mask, vsz,9:-2*max(vsz):2*max(vsz), 0.05);
 
 %% get the harmonic phase evolution
-
 harmfields = uphas - fl;
 
 %% Susceptibility map calculation
-
 x = rts(fl,mask1,vsz,bdir);
 
 %% Choose inputImage and Reshape to prepare for the SVD
@@ -112,11 +102,9 @@ end
 p = reshape(inputImage,prod(imSize),s(4));
 
 %% Decompose the Image using the SVD
-
 [U,S,V] = svd(double(p),"econ");
 
-% Take the first 5 components of the SVD
-
+%% Take the first 5 components of the SVD
 % first component
 componentVector = 1;
 comp1 = recomposeSVD(U,S,V,componentVector,imSize);
@@ -150,21 +138,21 @@ interpTime5 = [];
 interpolationFactor = 1;
 
 if doInterpolation
-
+    
     interpolationFactor = 2;
-
+    
     % interpolate the original image in time
-    interpAbs = interpft(inputImage,s(4)*interpolationFactor,4); 
-
+    interpAbs = interpft(inputImage,s(4)*interpolationFactor,4);
+    
     % interpolate the 5 SVD components in time
     interpTime1 = interpft(comp1,s(4)*interpolationFactor,4);
     interpTime2 = interpft(comp2,s(4)*interpolationFactor,4);
     interpTime3 = interpft(comp3,s(4)*interpolationFactor,4);
     interpTime4 = interpft(comp4,s(4)*interpolationFactor,4);
     interpTime5 = interpft(comp5,s(4)*interpolationFactor,4);
-
+    
 else
-   
+    
     interpAbs = inputImage;
     interpTime1 = comp1;
     interpTime2 = comp2;
@@ -174,13 +162,10 @@ else
 end
 
 %% Create the time vector from the interpolated data
-
 timeVector = 0:TR/interpolationFactor:s(4)*TR;
 timeVector = timeVector(1:s(4)*interpolationFactor);
 
-
 %% Define Ranges in the slice to look at Fluctuation and calculate roi means
-
 selectedSlice = 31;
 
 width = 8;
@@ -191,7 +176,6 @@ ymin = 63;
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
 
-
 d0 = getROImean(interpAbs,range2,range1,selectedSlice,TR/interpolationFactor);
 d1 = getROImean(interpTime1,range2,range1,selectedSlice,TR/interpolationFactor);
 d2 = getROImean(interpTime2,range2,range1,selectedSlice,TR/interpolationFactor);
@@ -199,24 +183,10 @@ d3 = getROImean(interpTime3,range2,range1,selectedSlice,TR/interpolationFactor);
 d4 = getROImean(interpTime4,range2,range1,selectedSlice,TR/interpolationFactor);
 d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
 
-% %% test ICA!
-% 
-% % define data
-% 
-% XDat = inputImage(range2,range1,selectedSlice,:);
-% XDatReshaped = reshape(XDat,[],size(XDat,4));
-% 
-% model = rica(XDatReshaped',6);
-% 
-% reconstructedData = transform(model, XDatReshaped');
-% 
-% figure();
-% plot(reconstructedData);
-
 %% Plot 3 Images Side by Side
 figure();
 subplot(2,2,1);
-imagesc(phas(:,:,selectedSlice,5)); 
+imagesc(phas(:,:,selectedSlice,5));
 xlabel('x-position [voxels]');
 ylabel('y-position [voxels]');
 subplot(2,2,2);
@@ -231,9 +201,8 @@ subplot(2,2,4);
 imagesc(harmfields(:,:,selectedSlice,5));colormap(gray)
 xlabel('x-position [voxels]');
 ylabel('y-position [voxels]');
+
 %% Define axesranges for the plotting
-
-
 dataMin = min(d0,[],'all');
 dataMax = max(d0,[],'all');
 dataRange = dataMax - dataMin;
@@ -249,9 +218,7 @@ else
     dlim(2) = dataMax + dataRange;
 end
 
-
 %% Plot the first 5 SVD coefficients in the region of interest defined by range2 and range1
-
 close all;
 
 figure();
@@ -288,16 +255,15 @@ axis([timeVector(1) timeVector(end) dlim(1) dlim(2)]);
 legend('Original Image','1st Component','2nd Component','3rd Component','4th Component','5th Component', 'Location','SouthEast');
 
 %% Show the variation of the data in real time by dynamic plotting or single plotting
-
 doDynamicPlot = false;
 
 if doDynamicPlot
-
+    
     figure(22);
     set(gcf,'Position',[100 100 1500 1000])
     %vidfile = VideoWriter('testmovieCHI.avi');
     %open(vidfile);
-
+    
     for ind = 1:s(4)*interpolationFactor
         subplot(2,3,1);
         im = squeeze(interpAbs(:,:,selectedSlice,ind));
@@ -309,7 +275,7 @@ if doDynamicPlot
         title('SVD 1');
         subplot(2,3,3);
         im3 = squeeze(interpTime2(:,:,selectedSlice,ind));
-        imagesc(im3),colormap(gray),caxis([-0.015,0.015]),colorbar; 
+        imagesc(im3),colormap(gray),caxis([-0.015,0.015]),colorbar;
         title('SVD 2');
         subplot(2,3,4);
         im4 = squeeze(interpTime3(:,:,selectedSlice,ind));
@@ -324,17 +290,15 @@ if doDynamicPlot
         imagesc(im6),colormap(gray),caxis([-0.01,0.01]),colorbar;
         title('SVD 5');
         drawnow
-
+        
         %F(ind) = getframe(gcf);
         %writeVideo(vidfile,F(ind));
     end
     %close(vidfile);
-
+    
 end
 
-
 %% Plot the singular values
-
 figure();
 set(gcf,'Position',[100 100 1500 1000]);
 plot(1:s(4),S*ones(s(4),1));
@@ -375,7 +339,6 @@ if p5 > normCheck
 end
 
 %% Plot the time-course of the 2nd SVD coefficient and identify minima
-% identify the minima (for gating of breath for example)
 foundMins = islocalmin(respcomp,'MinProminence',0.0035);
 
 % Plot
@@ -389,7 +352,6 @@ ylabel('Fluctuation in X map (ppm)');
 legend('Delta X','Minima');
 
 %% Plot the standard deviation of the qsm values obtained throughout the acquisition
-
 xRange = std(harmfields,0,4);
 figure(4);
 imagesc(xRange(:,:,25)),colormap('hot');
@@ -400,7 +362,7 @@ scanStart = find(physLogTable.mark>20);
 physLogResp = physLogTable.resp(scanStart+1:end);
 scanTime = mreconDat.Parameter.Labels.ScanDuration;
 phaseTime = timeVector(end);
-samplingRate = length(physLogResp) / scanTime; 
+samplingRate = length(physLogResp) / scanTime;
 
 % Plot the processed respiratory phase (naive approach)
 filteredTrace = lowpass(d3,0.16,interpolationFactor/TR); % low pass filter to get the jumps out of the data
@@ -424,7 +386,7 @@ ylabel('Respiratory Phase \in [-\pi, \pi]');
 
 legend('fMRI phase data','breathing belt data');
 
-%%
+%% Calculate the peak to peak variation between two resp traces
 ts1 = timeseries(respPhase,fmriTime);
 ts2 = timeseries(respPhasePhysLog,physLogTime);
 
@@ -436,5 +398,3 @@ ts2 = timeseries(respPhasePhysLog,physLogTime);
 idx2 = [1:22 24:49];
 
 rms(tsout1.Time(locs(idx2)) - tsout2.Time(locs2))
-
-
