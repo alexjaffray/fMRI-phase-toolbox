@@ -20,29 +20,34 @@ run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where
 %%
 run('/srv/data/ajaffray/MRecon-5.0.11/startup.m');
 
-%% Get magnitude and phase data from the nifti files
-
-[angleFile,angleDir] = uigetfile("*.nii","Select the Phase NIFTI File");
-[magFile,magDir] = uigetfile("*.nii","Select the Magnitude NIFTI File");
-
 %%
-angleData = niftiread(fullfile(angleDir,angleFile));
-magnitudeData = niftiread(fullfile(magDir,magFile));
+dataFormat = "rec";
 
-%% data From MRecon
-% filename has to be in lower case!!!
-mreconDat = MRecon();
+switch dataFormat
+    case "rec" 
+        % data From MRecon
+        % filename has to be in lower case!!!
+        mreconDat = MRecon();
+        mreconDat.ReadData();
+        angleData = squeeze(mreconDat.Data(:,:,:,1,:,1,2));
+        magnitudeData = squeeze(mreconDat.Data(:,:,:,1,:,1,1));
 
-%%
-mreconDat.ReadData();
+    case "nifti"
+        % Get magnitude and phase data from the nifti files
+        [angleFile,angleDir] = uigetfile("*.nii","Select the Phase NIFTI File");
+        [magFile,magDir] = uigetfile("*.nii","Select the Magnitude NIFTI File");
+        angleData = niftiread(fullfile(angleDir,angleFile));
+        magnitudeData = niftiread(fullfile(magDir,magFile));
+end
 
 
-%%
-angleData = squeeze(mreconDat.Data(:,:,:,1,:,1,2));
-magnitudeData = squeeze(mreconDat.Data(:,:,:,1,:,1,1));
+%% Ask User for the phys log file!
+[logFile,logDir] = uigetfile("*.log","Select the Relevant PhysLog File");
+physLogTable = readPhysLog(fullfile(logDir,logFile));
 
-
-%% Read in scan info
+%% Read in scan info from template NIFTI
+[angleFile,angleDir] = uigetfile("*.nii","Select the Template Phase NIFTI File");
+[magFile,magDir] = uigetfile("*.nii","Select the Template Magnitude NIFTI File");
 
 scaninfo = niftiinfo(fullfile(angleDir,angleFile));
 
@@ -179,9 +184,9 @@ timeVector = timeVector(1:s(4)*interpolationFactor);
 selectedSlice = 31;
 
 width = 8;
-height = 20;
+height = 10;
 xmin = 45;
-ymin = 53;
+ymin = 63;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
@@ -390,15 +395,11 @@ figure(4);
 imagesc(xRange(:,:,25)),colormap('hot');
 colorbar;
 
-%% Below works with the concussion study protocol only, and currently only with christina's data (i.e with MRecon)
-
-% Prepare physLog
-physLogTrace = load('data/subj01_trace.mat');
-scanStart = find(physLogTrace.ScanPsaLog20220812143118.mark>50);
-physLogResp = physLogTrace.ScanPsaLog20220812143118.resp(scanStart+1:end);
+%% Prepare physLog and plot
+scanStart = find(physLogTable.mark>20);
+physLogResp = physLogTable.resp(scanStart+1:end);
 scanTime = mreconDat.Parameter.Labels.ScanDuration;
 phaseTime = timeVector(end);
-
 samplingRate = length(physLogResp) / scanTime; 
 
 % Plot the processed respiratory phase (naive approach)
