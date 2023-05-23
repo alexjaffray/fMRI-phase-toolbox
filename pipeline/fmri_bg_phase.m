@@ -31,22 +31,24 @@ switch dataFormat
         angleData = squeeze(mreconDat.Data(:,:,:,1,:,1,2));
         magnitudeData = squeeze(mreconDat.Data(:,:,:,1,:,1,1));
         
+        %% Read in scan info from template NIFTI
+        [angleFile,angleDir] = uigetfile("*.nii","Select the Template Phase NIFTI File");
+        [magFile,magDir] = uigetfile("*.nii","Select the Template Magnitude NIFTI File");   
+        
     case "nifti"
         % Get magnitude and phase data from the nifti files
         [angleFile,angleDir] = uigetfile("*.nii","Select the Phase NIFTI File");
         [magFile,magDir] = uigetfile("*.nii","Select the Magnitude NIFTI File");
         angleData = niftiread(fullfile(angleDir,angleFile));
         magnitudeData = niftiread(fullfile(magDir,magFile));
+
 end
 
 %% Ask User for the phys log file!
 [logFile,logDir] = uigetfile("*.log","Select the Relevant PhysLog File");
 physLogTable = readPhysLog(fullfile(logDir,logFile));
 
-%% Read in scan info from template NIFTI
-[angleFile,angleDir] = uigetfile("*.nii","Select the Template Phase NIFTI File");
-[magFile,magDir] = uigetfile("*.nii","Select the Template Magnitude NIFTI File");
-
+%% Set scan info
 scaninfo = niftiinfo(fullfile(angleDir,angleFile));
 
 %% Set these based on the parameters of the imaging experiment (HARDCODED for now!)
@@ -168,10 +170,10 @@ timeVector = timeVector(1:s(4)*interpolationFactor);
 %% Define Ranges in the slice to look at Fluctuation and calculate roi means
 selectedSlice = 31;
 
-width = 8;
-height = 10;
-xmin = 45;
-ymin = 63;
+width = 20;
+height = 30;
+xmin = 50;
+ymin = 45;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
@@ -320,22 +322,27 @@ normCheck = 0;
 if p1 > normCheck
     respcomp = d1;
     normCheck = p1;
+    disp("resp comp = 1")
 end
 if p2 > normCheck
     respcomp = d2;
     normCheck = p2;
+    disp("resp comp = 2")
 end
 if p3 > normCheck
     respcomp = d3;
     normCheck = p3;
+    disp("resp comp = 3")
 end
 if p4 > normCheck
     respcomp = d4;
     normCheck = p4;
+    disp("resp comp = 4")
 end
 if p5 > normCheck
     respcomp = d5;
     normCheck = p5;
+    disp("resp comp = 5")
 end
 
 %% Plot the time-course of the 2nd SVD coefficient and identify minima
@@ -346,7 +353,7 @@ figure();
 plot(timeVector,respcomp);
 hold on;
 scatter(timeVector(foundMins),respcomp(foundMins),'o');
-title('2nd SVD Coefficient');
+title('Respiratory SVD Coefficient');
 xlabel('Time (s)');
 ylabel('Fluctuation in X map (ppm)');
 legend('Delta X','Minima');
@@ -354,18 +361,23 @@ legend('Delta X','Minima');
 %% Plot the standard deviation of the qsm values obtained throughout the acquisition
 xRange = std(harmfields,0,4);
 figure(4);
-imagesc(xRange(:,:,25)),colormap('hot');
+imagesc(xRange(:,:,30)),colormap('hot');
 colorbar;
 
 %% Prepare physLog and plot
-scanStart = find(physLogTable.mark>20);
-physLogResp = physLogTable.resp(scanStart+1:end);
-scanTime = mreconDat.Parameter.Labels.ScanDuration;
+scanStart = find(physLogTable.mark>=10);
+physLogResp = physLogTable.resp((scanStart+1):end);
+% scanTime = mreconDat.Parameter.Labels.ScanDuration;
+load scan_params.mat
 phaseTime = timeVector(end);
 samplingRate = length(physLogResp) / scanTime;
 
+% remove NANs (why are there nans!?!?!?)
+
+physLogResp(isnan(physLogResp)) = 0;
+
 % Plot the processed respiratory phase (naive approach)
-filteredTrace = lowpass(d3,0.16,interpolationFactor/TR); % low pass filter to get the jumps out of the data
+filteredTrace = lowpass(respcomp,0.16,interpolationFactor/TR); % low pass filter to get the jumps out of the data
 respPhase = calculateRespPhase(filteredTrace);
 fmriTime = timeVector + (scanTime - phaseTime + TR/2);
 figure();
