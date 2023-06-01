@@ -1,5 +1,5 @@
 # fMRI-phase-toolbox
-Toolbox for processing and analysis of spatiotemporal image phase fluctuations during fMRI scans. 
+Toolbox for processing and analysis of spatiotemporal image phase fluctuations during fMRI scans. Presented at ISMRM 2023.
 
 ## Requirements:
 
@@ -13,3 +13,11 @@ https://github.com/kamesy/QSM.m
  
 
 3. Reasonable Computing Power
+
+## Pipeline:
+
+1. Data import: Read in Magnitude image, Phase image and Physiological log files
+2. Phase unwrapping 
+3. Background field removal (isolation)
+4. Reshape data and perform BSS to extract respiratory trace
+5. Comparison and Plotting
