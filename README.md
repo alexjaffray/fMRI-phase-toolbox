@@ -1,5 +1,6 @@
 # fMRI-phase-toolbox
 Toolbox for processing and analysis of spatiotemporal image phase fluctuations during fMRI scans. Presented at ISMRM 2023.
+Main script: `/pipeline/fmri_bg_phase.m`
 
 ## Requirements:
 
