@@ -6,12 +6,12 @@
 % 29 Nov 2022
 % Editors (alphabetical order):
 % Alexander Jaffray: ajaffray@physics.ubc.ca
-% Michelle Medina: mmedina002@phas.ubc.ca
-%
-
-%%
+% Michelle Medina: mmedina002@phas.ubc.ca  
 clear all;
 close all;
+
+%%
+addpath('/srv/data/ajaffray/fMRI-phase-toolbox/');
 
 %%
 run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where the QSM toolbox is stored
@@ -34,6 +34,7 @@ switch dataFormat
         %% Read in scan info from template NIFTI
         [angleFile,angleDir] = uigetfile("*.nii","Select the Template Phase NIFTI File");
         [magFile,magDir] = uigetfile("*.nii","Select the Template Magnitude NIFTI File");   
+        
         
     case "nifti"
         % Get magnitude and phase data from the nifti files
@@ -64,20 +65,20 @@ imSize = [s(1),s(2),s(3)]; %[voxels]
 TR = scaninfo.PixelDimensions(4);
 
 %% Generate the mask from the last timepoint magnitude
-mask = generateMask(magnitudeData(:,:,:,end), vsz, '-m -n -f 0.5');
+mask0 = generateMask(magnitudeData(:,:,:,end), vsz, '-m -n -f 0.5');
 
 %% Convert from Int16 to phase
 phas = double(angleData) ./ 2048 * pi - pi;
 
 %% Do the laplacian unwrapping and rescale to units of field
-uphas = unwrapLaplacian(phas,mask,vsz);
+uphas = unwrapLaplacian(phas,mask0,vsz);
 
 for i = 1:size(uphas,4)
     uphas(:,:,:,i) = uphas(:,:,:,i) ./ (B0 * GYRO * TE);
 end
 
 %% Background field removal
-[fl, mask1] = resharp(uphas, mask, vsz,9:-2*max(vsz):2*max(vsz), 0.05);
+[fl, mask1] = resharp(uphas, mask0, vsz,9:-2*max(vsz):2*max(vsz), 0.05);
 
 %% get the harmonic phase evolution
 harmfields = uphas - fl;
@@ -170,10 +171,10 @@ timeVector = timeVector(1:s(4)*interpolationFactor);
 %% Define Ranges in the slice to look at Fluctuation and calculate roi means
 selectedSlice = 31;
 
-width = 20;
-height = 30;
-xmin = 50;
-ymin = 45;
+width = 4;
+height = 5;
+xmin = 45;
+ymin = 65;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
@@ -318,30 +319,37 @@ p3 = norm(diff(d3),1);
 p4 = norm(diff(d4),1);
 p5 = norm(diff(d5),1);
 
+respvol = [];
+
 normCheck = 0;
 if p1 > normCheck
     respcomp = d1;
     normCheck = p1;
+    respvol = interpTime1;
     disp("resp comp = 1")
 end
 if p2 > normCheck
     respcomp = d2;
     normCheck = p2;
+    respvol = interpTime2;
     disp("resp comp = 2")
 end
 if p3 > normCheck
     respcomp = d3;
     normCheck = p3;
+    respvol = interpTime3;
     disp("resp comp = 3")
 end
 if p4 > normCheck
     respcomp = d4;
     normCheck = p4;
+    respvol = interpTime4;
     disp("resp comp = 4")
 end
 if p5 > normCheck
     respcomp = d5;
     normCheck = p5;
+    respvol = interpTime5;
     disp("resp comp = 5")
 end
 
@@ -377,8 +385,8 @@ samplingRate = length(physLogResp) / scanTime;
 physLogResp(isnan(physLogResp)) = 0;
 
 % Plot the processed respiratory phase (naive approach)
-filteredTrace = lowpass(respcomp,0.16,interpolationFactor/TR); % low pass filter to get the jumps out of the data
-respPhase = calculateRespPhase(filteredTrace);
+filteredTrace = lowpass(respcomp/max(respcomp,[],'all'),0.4,interpolationFactor/TR); % low pass filter to get the jumps out of the data
+respPhase = calculateRespPhase(filteredTrace) %respcomp/max(respcomp,[],'all'));
 fmriTime = timeVector + (scanTime - phaseTime + TR/2);
 figure();
 plot(fmriTime,respPhase);
@@ -389,7 +397,7 @@ hold on;
 
 % Load the physlog file and process as before (naive approach)
 resampledPhysLogTrace = resample(physLogResp,interpolationFactor,round(samplingRate*TR)); % resample to same rate as the fmri-derived resp data
-filteredPhysLogTrace = lowpass(resampledPhysLogTrace,0.16,interpolationFactor/TR); % low pass filter to remove weird data jumps
+filteredPhysLogTrace = lowpass(resampledPhysLogTrace,0.4,interpolationFactor/TR); % low pass filter to remove weird data jumps
 physLogTime = linspace(0,scanTime,length(filteredPhysLogTrace));
 respPhasePhysLog = calculateRespPhase(filteredPhysLogTrace);
 plot(physLogTime,respPhasePhysLog);
@@ -397,6 +405,11 @@ xlabel('Time (s)');
 ylabel('Respiratory Phase \in [-\pi, \pi]');
 
 legend('fMRI phase data','breathing belt data');
+
+figure()
+plot(0.002*((1:length(physLogResp))-1),physLogResp/max(physLogResp,[],'all'))
+hold on
+plot(fmriTime,max(respcomp,[],'all'))
 
 %% Calculate the peak to peak variation between two resp traces
 ts1 = timeseries(respPhase,fmriTime);
