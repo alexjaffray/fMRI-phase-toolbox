@@ -35,7 +35,6 @@ switch dataFormat
         [angleFile,angleDir] = uigetfile("*.nii","Select the Template Phase NIFTI File");
         [magFile,magDir] = uigetfile("*.nii","Select the Template Magnitude NIFTI File");   
         
-        
     case "nifti"
         % Get magnitude and phase data from the nifti files
         [angleFile,angleDir] = uigetfile("*.nii","Select the Phase NIFTI File");
@@ -67,24 +66,8 @@ TR = scaninfo.PixelDimensions(4);
 %% Generate the mask from the last timepoint magnitude
 mask0 = generateMask(magnitudeData(:,:,:,end), vsz, '-m -n -f 0.5');
 
-%% Convert from Int16 to phase
-phas = double(angleData) ./ 2048 * pi - pi;
-
-%% Do the laplacian unwrapping and rescale to units of field
-uphas = unwrapLaplacian(phas,mask0,vsz);
-
-for i = 1:size(uphas,4)
-    uphas(:,:,:,i) = uphas(:,:,:,i) ./ (B0 * GYRO * TE);
-end
-
-%% Background field removal
-[fl, mask1] = resharp(uphas, mask0, vsz,9:-2*max(vsz):2*max(vsz), 0.05);
-
-%% get the harmonic phase evolution
-harmfields = uphas - fl;
-
-%% Susceptibility map calculation
-x = rts(fl,mask1,vsz,bdir);
+%% Generate harmonic fields
+[harmfields,mask1,phas,uphas,fl] = calcHarmFields(angleData,mask0,TE,B0,GYRO,vsz);
 
 %% Choose inputImage and Reshape to prepare for the SVD
 inputImage = zeros(size(uphas));
@@ -93,6 +76,8 @@ imageType = "harmonicField";
 
 switch imageType
     case "chi"
+        % Susceptibility map calculation
+        x = rts(fl,mask1,vsz,bdir);
         inputImage = x;
     case "totalField"
         inputImage = uphas;
@@ -102,231 +87,123 @@ switch imageType
         inputImage = harmfields;
 end
 
-p = reshape(inputImage,prod(imSize),s(4));
+%% Set SVD params
+interpolationFactor = 4;
+exampleSlice = 31;
+doPlot = true;
+
+plotSlice(phas,uphas,fl,harmfields,exampleSlice);
 
 %% Decompose the Image using the SVD
-[U,S,V] = svd(double(p),"econ");
+[respvol,timeVector] = getRespComp(inputImage,s,TR,interpolationFactor,doPlot);
 
-%% Take the first 5 components of the SVD
-% first component
-componentVector = 1;
-comp1 = recomposeSVD(U,S,V,componentVector,imSize);
+%% Project Respiratory correlated field onto spherical harmonics
 
-% second component
-componentVector = 2;
-comp2 = recomposeSVD(U,S,V,componentVector,imSize);
+% define a regular grid covering the domain of the data (arb scale)
+[xxmat,yymat,zzmat] = meshgrid(-47.5:1:47.5,-47.5:1:47.5,-28:1:28);
+order = ones(96,96,57);
 
-% third component
-componentVector = 3;
-comp3 = recomposeSVD(U,S,V,componentVector,imSize);
+n_timepoints = length(respcomp);
+mb = 3;
+n_exc = size(order,3)/mb;
 
-% fourth component
-componentVector = 4;
-comp4 = recomposeSVD(U,S,V,componentVector,imSize);
+xx0 = xxmat(:,:,1);
+xx = xx0(:);
+yy0 = yymat(:,:,1);
+yy = yy0(:);
 
-% fifth component
-componentVector = 5;
-comp5 = recomposeSVD(U,S,V,componentVector,imSize);
+slicetrack = repmat(1:19,1,n_timepoints)';
+se = strel('cube',7);
 
-%% Interpolate whole volume using zero-filling along the time dimension to help visualize things
-doInterpolation = false;
+mask = imerode(mask0,se);
 
-interpAbs = [];
-interpTime1 = [];
-interpTime2 = [];
-interpTime3 = [];
-interpTime4 = [];
-interpTime5 = [];
+C = zeros(n_exc,n_timepoints,16);
 
-interpolationFactor = 1;
+elvec = 1:96;
 
-if doInterpolation
-    
-    interpolationFactor = 2;
-    
-    % interpolate the original image in time
-    interpAbs = interpft(inputImage,s(4)*interpolationFactor,4);
-    
-    % interpolate the 5 SVD components in time
-    interpTime1 = interpft(comp1,s(4)*interpolationFactor,4);
-    interpTime2 = interpft(comp2,s(4)*interpolationFactor,4);
-    interpTime3 = interpft(comp3,s(4)*interpolationFactor,4);
-    interpTime4 = interpft(comp4,s(4)*interpolationFactor,4);
-    interpTime5 = interpft(comp5,s(4)*interpolationFactor,4);
-    
-else
-    
-    interpAbs = inputImage;
-    interpTime1 = comp1;
-    interpTime2 = comp2;
-    interpTime3 = comp3;
-    interpTime4 = comp4;
-    interpTime5 = comp5;
+dmat = [];
+
+tic
+for volidx = 1:n_timepoints
+    for ind = 1:n_exc
+
+        zvec = [ind ind+19 ind+38];
+
+        xx = xxmat(mask(elvec,elvec,zvec));
+        yy = yymat(mask(elvec,elvec,zvec));
+        zz = zzmat(mask(elvec,elvec,zvec));
+
+        onevec = order(mask(elvec,elvec,zvec));
+
+        dmat = [onevec xx yy zz xx.*yy yy.*zz xx.*zz xx.^2 - yy.^2 2*zz.^2 - xx.^2 - yy.^2 xx.*yy.*zz zz.*xx.^2 - zz.*yy.^2 3*yy.*xx.^2 - yy.^3 (5*zz.^2 - (xx.^2 + yy.^2 + zz.^2)).*yy (5*zz.^2 - (xx.^2 + yy.^2 + zz.^2)).*xx 5*zz.^3-3*(xx.^2 + yy.^2 + zz.^2).*zz xx.^3 - 3*xx.*yy.^2];
+
+        C(ind,volidx,:) = basisExpansion(respvol(elvec,elvec,zvec,volidx),dmat,mask(elvec,elvec,zvec));
+    end
+end
+toc
+
+C3 = reshape(C,[],16);
+
+% Filtering
+fs = n_exc/TR;
+f0 = 1/TR;
+fn = fs/2;
+freqRatio = f0/fn;
+
+notchWidth = 0.1;
+
+% Compute zeros
+notchZeros = [exp( sqrt(-1)*pi*freqRatio ), exp( -sqrt(-1)*pi*freqRatio )];
+
+% Compute poles
+notchPoles = (1-notchWidth) * notchZeros;
+
+b_notch = poly( notchZeros ); %  Get moving average filter coefficients
+a_notch = poly( notchPoles ); %  Get autoregressive filter coefficients
+
+% filter signal x
+C4 = filter(b_notch,a_notch,C3);
+[b_lp,a_lp] = butter(6,freqRatio/2);
+sliceTR_coeffs = filter(b_lp,a_lp,C4);
+
+%% Ignore slice timing -> seems more promising :) 
+testharmfields2 = respvol;
+xx = xxmat(mask);
+yy = yymat(mask);
+zz = zzmat(mask);
+
+onevec = order(mask);
+
+dmat = [onevec xx yy zz xx.*yy yy.*zz xx.*zz xx.^2 - yy.^2 2*zz.^2 - xx.^2 - yy.^2 xx.*yy.*zz zz.*xx.^2 - zz.*yy.^2 3*yy.*xx.^2 - yy.^3 (5*zz.^2 - (xx.^2 + yy.^2 + zz.^2)).*yy (5*zz.^2 - (xx.^2 + yy.^2 + zz.^2)).*xx 5*zz.^3-3*(xx.^2 + yy.^2 + zz.^2).*zz xx.^3 - 3*xx.*yy.^2];
+
+volTR_coeffs = zeros(n_timepoints,16);
+
+tic
+for volidx = 1:n_timepoints
+
+    volTR_coeffs(volidx,:) = basisExpansion(respvol(:,:,:,volidx),dmat,mask);
+
 end
 
-%% Create the time vector from the interpolated data
-timeVector = 0:TR/interpolationFactor:s(4)*TR;
-timeVector = timeVector(1:s(4)*interpolationFactor);
+toc
 
-%% Define Ranges in the slice to look at Fluctuation and calculate roi means
-selectedSlice = 31;
+%% Plot Each Coefficient of Varying Order (volume TR)
+plotSphericalHarmonics(volTR_coeffs,TR/interpolationFactor*(1:n_timepoints));
 
-width = 8;
-height = 10;
-xmin = 45;
-ymin = 63;
+%% Plot Each Coefficient of Varying Order (Slice TR, Filtered Notch + LP)
+plotSphericalHarmonics(sliceTR_coeffs,TR/interpolationFactor/n_exc*(1:(n_timepoints*n_exc)));
 
-range2 = xmin:(xmin+height);
-range1 = ymin:(ymin+width);
+%% Generate small grid of x y and z positions to visualize the spherical harmonic evolution
 
-d0 = getROImean(interpAbs,range2,range1,selectedSlice,TR/interpolationFactor);
-d1 = getROImean(interpTime1,range2,range1,selectedSlice,TR/interpolationFactor);
-d2 = getROImean(interpTime2,range2,range1,selectedSlice,TR/interpolationFactor);
-d3 = getROImean(interpTime3,range2,range1,selectedSlice,TR/interpolationFactor);
-d4 = getROImean(interpTime4,range2,range1,selectedSlice,TR/interpolationFactor);
-d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
+[xxv,yyv,zzv] = meshgrid(-47.5:5:47.5,-47.5:5:47.5,-28:4.75:28);
 
-%% Plot 3 Images Side by Side
-figure();
-subplot(2,2,1);
-imagesc(phas(:,:,selectedSlice,5));
-xlabel('x-position [voxels]');
-ylabel('y-position [voxels]');
-subplot(2,2,2);
-imagesc(uphas(:,:,selectedSlice,5));colormap(gray)
-xlabel('x-position [voxels]');
-ylabel('y-position [voxels]');
-subplot(2,2,3);
-imagesc(fl(:,:,selectedSlice,5));colormap(gray)
-xlabel('x-position [voxels]');
-ylabel('y-position [voxels]');
-subplot(2,2,4);
-imagesc(harmfields(:,:,selectedSlice,5));colormap(gray)
-xlabel('x-position [voxels]');
-ylabel('y-position [voxels]');
+xx = xxv(:);
+yy = yyv(:);
+zz = zzv(:);
 
-%% Define axesranges for the plotting
-dataMin = min(d0,[],'all');
-dataMax = max(d0,[],'all');
-dataRange = dataMax - dataMin;
-dlim = [0 0];
+dmat2 = [ones(size(xx)) xx yy zz xx.*yy yy.*zz xx.*zz xx.^2 - yy.^2 2*zz.^2 - xx.^2 - yy.^2 xx.*yy.*zz zz.*xx.^2 - zz.*yy.^2 3*yy.*xx.^2 - yy.^3 (5*zz.^2 - (xx.^2 + yy.^2 + zz.^2)).*yy (5*zz.^2 - (xx.^2 + yy.^2 + zz.^2)).*xx 5*zz.^3-3*(xx.^2 + yy.^2 + zz.^2).*zz xx.^3 - 3*xx.*yy.^2];
 
-if dataMin < 0
-    
-    dlim(1) = dataMin - dataRange;
-    dlim(2) = dataRange/2;
-    
-else
-    dlim(1) = -2*dataRange;
-    dlim(2) = dataMax + dataRange;
-end
-
-%% Plot the first 5 SVD coefficients in the region of interest defined by range2 and range1
-close all;
-
-figure();
-set(gcf,'Position',[100 100 2000 750])
-subplot(1,2,1);
-imagesc(interpAbs(:,:,selectedSlice,1));
-%title('Image with ROI');
-xlabel('x-position [voxels]');
-ylabel('y-position [voxels]');
-colormap(gray);
-ax = gca;
-hold on;
-
-roi = drawrectangle(ax,'Position',[xmin,ymin,width,height],'Color',[1 0 0]);
-subplot(1,2,2);
-plot(timeVector,d0,'Color','black','LineStyle','-.');
-hold on;
-plot(timeVector,d1,'Color','red');
-hold on;
-plot(timeVector,d2,'Color','blue');
-hold on;
-plot(timeVector,d3,'Color','black');
-hold on;
-plot(timeVector,d4,'Color','green');
-hold on;
-plot(timeVector,d5,'Color','magenta');
-
-%title('Field Fluctuations: Original Image and First 5 SVD Coefficients');
-xlabel('Time [s]');
-ylabel('Mean Field Fluctuation in ROI [ppm]');
-
-axis([timeVector(1) timeVector(end) dlim(1) dlim(2)]);
-
-legend('Original Image','1st Component','2nd Component','3rd Component','4th Component','5th Component', 'Location','SouthEast');
-
-%% Plot the singular values
-figure();
-set(gcf,'Position',[100 100 1500 1000]);
-plot(1:s(4),S*ones(s(4),1));
-title('Singular Values');
-xlabel('Singular Value Number');
-ylabel('Singular Value');
-set(gca,'yscale','log');
-
-%% Determine component of svd corresponding to breathing flux
-respcomp = [];
-
-p1 = norm(diff(d1),1);
-p2 = norm(diff(d2),1);
-p3 = norm(diff(d3),1);
-p4 = norm(diff(d4),1);
-p5 = norm(diff(d5),1);
-
-respvol = [];
-
-normCheck = 0;
-if p1 > normCheck
-    respcomp = d1;
-    normCheck = p1;
-    respvol = interpTime1;
-    disp("resp comp = 1")
-end
-if p2 > normCheck
-    respcomp = d2;
-    normCheck = p2;
-    respvol = interpTime2;
-    disp("resp comp = 2")
-end
-if p3 > normCheck
-    respcomp = d3;
-    normCheck = p3;
-    respvol = interpTime3;
-    disp("resp comp = 3")
-end
-if p4 > normCheck
-    respcomp = d4;
-    normCheck = p4;
-    respvol = interpTime4;
-    disp("resp comp = 4")
-end
-if p5 > normCheck
-    respcomp = d5;
-    normCheck = p5;
-    respvol = interpTime5;
-    disp("resp comp = 5")
-end
-
-%% Plot the time-course of the 2nd SVD coefficient and identify minima
-foundMins = islocalmin(respcomp,'MinProminence',0.0035);
-
-% Plot
-figure();
-plot(timeVector,respcomp);
-hold on;
-scatter(timeVector(foundMins),respcomp(foundMins),'o');
-title('2nd SVD Coefficient');
-xlabel('Time (s)');
-ylabel('Fluctuation in X map (ppm)');
-legend('Delta X','Minima');
-
-%% Plot the standard deviation of the qsm values obtained throughout the acquisition
-xRange = std(harmfields,0,4);
-figure(4);
-imagesc(xRange(:,:,25)),colormap('hot');
-colorbar;
+outputField = reshape(sliceTR_coeffs*dmat2',size(sliceTR_coeffs,1),20,20,12);
 
 %% Prepare physLog and plot
 scanStart = find(physLogTable.mark>20);
