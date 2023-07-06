@@ -129,7 +129,7 @@ componentVector = 5;
 comp5 = recomposeSVD(U,S,V,componentVector,imSize);
 
 %% Interpolate whole volume using zero-filling along the time dimension to help visualize things
-doInterpolation = true;
+doInterpolation = false;
 
 interpAbs = [];
 interpTime1 = [];
@@ -171,10 +171,10 @@ timeVector = timeVector(1:s(4)*interpolationFactor);
 %% Define Ranges in the slice to look at Fluctuation and calculate roi means
 selectedSlice = 31;
 
-width = 4;
-height = 5;
+width = 8;
+height = 10;
 xmin = 45;
-ymin = 65;
+ymin = 63;
 
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
@@ -257,50 +257,6 @@ axis([timeVector(1) timeVector(end) dlim(1) dlim(2)]);
 
 legend('Original Image','1st Component','2nd Component','3rd Component','4th Component','5th Component', 'Location','SouthEast');
 
-%% Show the variation of the data in real time by dynamic plotting or single plotting
-doDynamicPlot = false;
-
-if doDynamicPlot
-    
-    figure(22);
-    set(gcf,'Position',[100 100 1500 1000])
-    %vidfile = VideoWriter('testmovieCHI.avi');
-    %open(vidfile);
-    
-    for ind = 1:s(4)*interpolationFactor
-        subplot(2,3,1);
-        im = squeeze(interpAbs(:,:,selectedSlice,ind));
-        imagesc(im),colormap(gray),caxis([-0.05,0.05]),colorbar;
-        title('Original X Image');
-        subplot(2,3,2);
-        im2 = squeeze(interpTime1(:,:,selectedSlice,ind));
-        imagesc(im2),colormap(gray),caxis([-0.05,0.05]),colorbar;
-        title('SVD 1');
-        subplot(2,3,3);
-        im3 = squeeze(interpTime2(:,:,selectedSlice,ind));
-        imagesc(im3),colormap(gray),caxis([-0.015,0.015]),colorbar;
-        title('SVD 2');
-        subplot(2,3,4);
-        im4 = squeeze(interpTime3(:,:,selectedSlice,ind));
-        imagesc(im4),colormap(gray),caxis([-0.01,0.01]),colorbar;
-        title('SVD 3');
-        subplot(2,3,5);
-        im5 = squeeze(interpTime4(:,:,selectedSlice,ind));
-        imagesc(im5),colormap(gray),caxis([-0.01,0.01]),colorbar;
-        title('SVD 4');
-        subplot(2,3,6);
-        im6 = squeeze(interpTime5(:,:,selectedSlice,ind));
-        imagesc(im6),colormap(gray),caxis([-0.01,0.01]),colorbar;
-        title('SVD 5');
-        drawnow
-        
-        %F(ind) = getframe(gcf);
-        %writeVideo(vidfile,F(ind));
-    end
-    %close(vidfile);
-    
-end
-
 %% Plot the singular values
 figure();
 set(gcf,'Position',[100 100 1500 1000]);
@@ -361,7 +317,7 @@ figure();
 plot(timeVector,respcomp);
 hold on;
 scatter(timeVector(foundMins),respcomp(foundMins),'o');
-title('Respiratory SVD Coefficient');
+title('2nd SVD Coefficient');
 xlabel('Time (s)');
 ylabel('Fluctuation in X map (ppm)');
 legend('Delta X','Minima');
@@ -369,24 +325,19 @@ legend('Delta X','Minima');
 %% Plot the standard deviation of the qsm values obtained throughout the acquisition
 xRange = std(harmfields,0,4);
 figure(4);
-imagesc(xRange(:,:,30)),colormap('hot');
+imagesc(xRange(:,:,25)),colormap('hot');
 colorbar;
 
 %% Prepare physLog and plot
-scanStart = find(physLogTable.mark>=10);
-physLogResp = physLogTable.resp((scanStart+1):end);
-% scanTime = mreconDat.Parameter.Labels.ScanDuration;
-load scan_params.mat
+scanStart = find(physLogTable.mark>20);
+physLogResp = physLogTable.resp(scanStart+1:end);
+scanTime = mreconDat.Parameter.Labels.ScanDuration;
 phaseTime = timeVector(end);
 samplingRate = length(physLogResp) / scanTime;
 
-% remove NANs (why are there nans!?!?!?)
-
-physLogResp(isnan(physLogResp)) = 0;
-
 % Plot the processed respiratory phase (naive approach)
-filteredTrace = lowpass(respcomp/max(respcomp,[],'all'),0.4,interpolationFactor/TR); % low pass filter to get the jumps out of the data
-respPhase = calculateRespPhase(filteredTrace) %respcomp/max(respcomp,[],'all'));
+filteredTrace = lowpass(respcomp,0.3,interpolationFactor/TR); % low pass filter to get the jumps out of the data
+respPhase = calculateRespPhase(filteredTrace);
 fmriTime = timeVector + (scanTime - phaseTime + TR/2);
 figure();
 plot(fmriTime,respPhase);
@@ -397,19 +348,13 @@ hold on;
 
 % Load the physlog file and process as before (naive approach)
 resampledPhysLogTrace = resample(physLogResp,interpolationFactor,round(samplingRate*TR)); % resample to same rate as the fmri-derived resp data
-filteredPhysLogTrace = lowpass(resampledPhysLogTrace,0.4,interpolationFactor/TR); % low pass filter to remove weird data jumps
+filteredPhysLogTrace = lowpass(resampledPhysLogTrace,0.3,interpolationFactor/TR); % low pass filter to remove weird data jumps
 physLogTime = linspace(0,scanTime,length(filteredPhysLogTrace));
 respPhasePhysLog = calculateRespPhase(filteredPhysLogTrace);
 plot(physLogTime,respPhasePhysLog);
 xlabel('Time (s)');
 ylabel('Respiratory Phase \in [-\pi, \pi]');
-
-legend('fMRI phase data','breathing belt data');
-
-figure()
-plot(0.002*((1:length(physLogResp))-1),physLogResp/max(physLogResp,[],'all'))
-hold on
-plot(fmriTime,max(respcomp,[],'all'))
+legend('fMRI phase data (vol_tr)','fMRI phase data (slice tr)','breathing belt data');
 
 %% Calculate the peak to peak variation between two resp traces
 ts1 = timeseries(respPhase,fmriTime);
