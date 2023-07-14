@@ -83,7 +83,7 @@ dpulse = tapas_physio_conv(pulset, kernel, 'symmetric');
 % `scipy.signal.savgol_coeffs(5, polyorder=2, deriv=1, use='conv')`
 
 % Tolerance to the derivative
-dpulse(abs(dpulse) < 1e-4) = 0;
+% dpulse(abs(dpulse) < 1e-6) = 0;
 dpulse = sign(dpulse);
 
 % number of histogram bins determined by dynamic range of detected values
@@ -98,7 +98,7 @@ binnum(overshoot) = nbins;
 cumsumh = cumsum(h');
 sumh = cumsumh(end);
 
-dpulse(dpulse == 0) = nan;
+dpulse(dpulse == 0);
 rphase = pi*(cumsumh(binnum)/sumh).*dpulse+pi;
 
 if verbose

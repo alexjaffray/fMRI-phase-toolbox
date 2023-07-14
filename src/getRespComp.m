@@ -204,7 +204,7 @@ if doPlot
     legend('Delta X','Minima');
 
     % Plot the standard deviation of the qsm values obtained throughout the acquisition
-    xRange = std(harmfields,0,4);
+    xRange = std(inputImage,0,4);
     figure(4);
     imagesc(xRange(:,:,25)),colormap('hot');
     colorbar;

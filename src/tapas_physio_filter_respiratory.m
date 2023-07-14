@@ -62,8 +62,8 @@ end
 %% Basic preproc and outlier removal
 
 % If rpulset has nans, replace them with zeros
-rpulsetOffset = nanmean(rpulset);
-rpulset(isnan(rpulset)) = nanmean(rpulset);
+rpulsetOffset = mean(rpulset);
+rpulset(isnan(rpulset)) = mean(rpulset);
 
 rpulset = detrend(rpulset, 3);  % Demean / detrend to reduce edge effects
 

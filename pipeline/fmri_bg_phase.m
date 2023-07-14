@@ -19,6 +19,22 @@ run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where
 %%
 run('/srv/data/ajaffray/MRecon-5.0.11/startup.m');
 
+%% Change this for each run
+fileLabel = "/srv/data/ajaffray/fMRI-phase-toolbox/data/M35Post.mat";
+
+%% Set these for current protocol
+angleFile = 'sub-M02_ses-2122post_task-rest_run-1_part-phase_bold.nii';
+angleDir = '/srv/data/scratch/sub-M02/ses-2122post/func/';
+magDir = '/srv/data/scratch/sub-M02/ses-2122post/func/';
+magFile = 'sub-M02_ses-2122post_task-rest_run-1_part-mag_bold.nii';
+% 
+% if ~exist(angleFile)
+% 
+%     %% Read in scan info from template NIFTI
+%     [angleFile,angleDir] = uigetfile("*.nii","Select the Template Phase NIFTI File");
+%     [magFile,magDir] = uigetfile("*.nii","Select the Template Magnitude NIFTI File");   
+% end
+
 %% Ask for data files (.rec, .par files must have lowercase file tails)
 dataFormat = "rec";
 
@@ -30,10 +46,6 @@ switch dataFormat
         mreconDat.ReadData();
         angleData = squeeze(mreconDat.Data(:,:,:,1,:,1,2));
         magnitudeData = squeeze(mreconDat.Data(:,:,:,1,:,1,1));
-        
-        %% Read in scan info from template NIFTI
-        [angleFile,angleDir] = uigetfile("*.nii","Select the Template Phase NIFTI File");
-        [magFile,magDir] = uigetfile("*.nii","Select the Template Magnitude NIFTI File");   
         
     case "nifti"
         % Get magnitude and phase data from the nifti files
@@ -88,7 +100,7 @@ switch imageType
 end
 
 %% Set SVD params
-interpolationFactor = 4;
+interpolationFactor = 1;
 exampleSlice = 31;
 doPlot = true;
 
@@ -103,7 +115,7 @@ plotSlice(phas,uphas,fl,harmfields,exampleSlice);
 [xxmat,yymat,zzmat] = meshgrid(-47.5:1:47.5,-47.5:1:47.5,-28:1:28);
 order = ones(96,96,57);
 
-n_timepoints = length(respcomp);
+n_timepoints = length(timeVector);
 mb = 3;
 n_exc = size(order,3)/mb;
 
@@ -163,7 +175,7 @@ a_notch = poly( notchPoles ); %  Get autoregressive filter coefficients
 
 % filter signal x
 C4 = filter(b_notch,a_notch,C3);
-[b_lp,a_lp] = butter(6,freqRatio/2);
+[b_lp,a_lp] = butter(12,freqRatio/2);
 sliceTR_coeffs = filter(b_lp,a_lp,C4);
 
 %% Ignore slice timing -> seems more promising :) 
@@ -204,18 +216,67 @@ zz = zzv(:);
 dmat2 = [ones(size(xx)) xx yy zz xx.*yy yy.*zz xx.*zz xx.^2 - yy.^2 2*zz.^2 - xx.^2 - yy.^2 xx.*yy.*zz zz.*xx.^2 - zz.*yy.^2 3*yy.*xx.^2 - yy.^3 (5*zz.^2 - (xx.^2 + yy.^2 + zz.^2)).*yy (5*zz.^2 - (xx.^2 + yy.^2 + zz.^2)).*xx 5*zz.^3-3*(xx.^2 + yy.^2 + zz.^2).*zz xx.^3 - 3*xx.*yy.^2];
 
 outputField = reshape(sliceTR_coeffs*dmat2',size(sliceTR_coeffs,1),20,20,12);
+smallMask = imresize3(mask,[20,20,12]);
+
+% %% Write Video
+% 
+% V = VideoWriter('myFile2.avi');
+% V.VideoCompressionMethod
+% open(V)
+% 
+% imagesc(squeeze(outputField(20,:,:,7)).*squeeze(smallMask(:,:,7)),[-0.2,0.2])
+% colormap(turbo)
+% axis tight manual
+% set(gca,'nextplot','replacechildren');
+% for k = 1:(size(outputField,1))
+%     imagesc(squeeze(outputField(k,:,:,7)).*squeeze(smallMask(:,:,7)))
+%     frame = getframe(gcf);
+%     writeVideo(V,frame);
+%     
+%     k
+%     
+% end
+% 
+% close(V);
+
+
+%% respcomp choice
+% respcomp = volTR_coeffs(:,1);
+respcomp = sliceTR_coeffs(:,1);
 
 %% Prepare physLog and plot
+pLogFileName = string(fullfile(logDir,logFile));
+logfiles.cardiac = pLogFileName;
+logfiles.respiration = pLogFileName;
+logfiles.sampling_interval = 1/500;
+logfiles.relative_start_acquisition = 0;
+phaseSign = -1;
+doTRComp = 0;
+
+if phaseSign == -1
+    doTRComp = 1;
+end
+
+[c, r, t2, cpulse, acq_codes] = tapas_physio_read_physlogfiles_philips(logfiles, 'PPU');
+
+c = c(1:2:end);
+r = r(1:2:end);
+t2 = t2(1:2:end)/2;
 scanStart = find(physLogTable.mark>20);
-physLogResp = physLogTable.resp(scanStart+1:end);
+t2 = t2(scanStart+1:end);
+[physLogResp,fh] = tapas_physio_filter_respiratory(r(scanStart+1:end),t2(2)-t2(1),[],true,true); 
+
+TR = 1.150/19;
+
+timeVector = (1:length(respcomp)) * 1.15/19*interpolationFactor - 1.15/19*interpolationFactor;
 scanTime = mreconDat.Parameter.Labels.ScanDuration;
 phaseTime = timeVector(end);
 samplingRate = length(physLogResp) / scanTime;
 
 % Plot the processed respiratory phase (naive approach)
-filteredTrace = lowpass(respcomp,0.3,interpolationFactor/TR); % low pass filter to get the jumps out of the data
-respPhase = calculateRespPhase(filteredTrace);
-fmriTime = timeVector + (scanTime - phaseTime + TR/2);
+filteredTrace = lowpass(respcomp,0.1,interpolationFactor/TR); % low pass filter to get the jumps out of the data
+respPhase = calculateRespPhase(respcomp);
+fmriTime = timeVector + (scanTime - phaseTime + 0*TR/2)/2 + doTRComp*TR/2 * 19;
 figure();
 plot(fmriTime,respPhase);
 title('Respiratory Phase during FMRI Acquisition');
@@ -224,24 +285,56 @@ ylabel('Respiratory Phase \in [-\pi, \pi]');
 hold on;
 
 % Load the physlog file and process as before (naive approach)
-resampledPhysLogTrace = resample(physLogResp,interpolationFactor,round(samplingRate*TR)); % resample to same rate as the fmri-derived resp data
-filteredPhysLogTrace = lowpass(resampledPhysLogTrace,0.3,interpolationFactor/TR); % low pass filter to remove weird data jumps
+resampledPhysLogTrace = physLogResp; %resample(physLogResp,interpolationFactor,round(samplingRate*TR)); % resample to same rate as the fmri-derived resp data
+filteredPhysLogTrace = lowpass(resampledPhysLogTrace,20,520); % low pass filter to remove weird data jumps
 physLogTime = linspace(0,scanTime,length(filteredPhysLogTrace));
 respPhasePhysLog = calculateRespPhase(filteredPhysLogTrace);
 plot(physLogTime,respPhasePhysLog);
 xlabel('Time (s)');
 ylabel('Respiratory Phase \in [-\pi, \pi]');
-legend('fMRI phase data (vol_tr)','fMRI phase data (slice tr)','breathing belt data');
+legend('fMRI phase data (Slice TR)','breathing belt data');
 
-%% Calculate the peak to peak variation between two resp traces
-ts1 = timeseries(respPhase,fmriTime);
-ts2 = timeseries(respPhasePhysLog,physLogTime);
+%% Generate Figure
+% The standard values for colors saved in PLOT_STANDARDS() will be accessed from the variable PS
+close all;
 
-[tsout1,tsout2] = synchronize(ts1,ts2,'union');
+PS = PLOT_STANDARDS();
 
-[peaks,locs,w] = findpeaks(tsout1.Data);
-[peaks2,locs2,w2] = findpeaks(tsout2.Data);
+figure(1);
+fig1_comps.fig = gcf;
+hold on
+fig1_comps.p1 = plot(fmriTime,phaseSign*respcomp./max(respcomp));
+fig1_comps.p2 = plot(physLogTime,filteredPhysLogTrace);
 
-idx2 = [1:22 24:49];
+% ADD LABELS, TITLE, LEGEND
+title('Respiratory Trace during FMRI Acquisition');
+xlabel('Time (s)');
+ylabel('Respiratory Trace (a.u)');
+legend([fig1_comps.p1, fig1_comps.p2], 'B_0 Fluctuation (Slice TR)','Breathing Belt');
+legendX = .82; legendY = .87; legendWidth = 0.02; legendHeight = 0.02;
+fig1_comps.legendPosition = [legendX, legendY, legendWidth, legendHeight];
+% If you want the tightest box set width and height values very low matlab automatically sets the tightest box
+%========================================================
+% SET PLOT PROPERTIES
+% Choices for COLORS can be found in ColorPalette.png
+set(fig1_comps.p1, 'LineStyle', '-', 'LineWidth', 2, 'Color',PS.Blue3);
+set(fig1_comps.p2, 'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyRed);
+%========================================================
+% INSTANTLY IMPROVE AESTHETICS-most important step
+STANDARDIZE_FIGURE(fig1_comps);
 
-rms(tsout1.Time(locs(idx2)) - tsout2.Time(locs2))
+% %% Calculate the peak to peak variation between two resp traces
+% ts1 = timeseries(respPhase,fmriTime);
+% ts2 = timeseries(respPhasePhysLog,physLogTime);
+% 
+% [tsout1,tsout2] = synchronize(ts1,ts2,'union');
+% 
+% [peaks,locs,w] = findpeaks(tsout1.Data);
+% [peaks2,locs2,w2] = findpeaks(tsout2.Data);
+% 
+% idx2 = [1:22 24:49];
+% 
+% rms(tsout1.Time(locs(idx2)) - tsout2.Time(locs2))
+
+%% Save Things for Plotting
+save(fileLabel,"sliceTR_coeffs","fmriTime","physLogTime","filteredPhysLogTrace","respcomp","phaseSign");
