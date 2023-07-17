@@ -20,7 +20,7 @@ run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where
 run('/srv/data/ajaffray/MRecon-5.0.11/startup.m');
 
 %% Change this for each run
-fileLabel = "/srv/data/ajaffray/fMRI-phase-toolbox/data/M35Post.mat";
+fileLabel = "/srv/data/ajaffray/fMRI-phase-toolbox/data/M20Post.mat";
 
 %% Set these for current protocol
 angleFile = 'sub-M02_ses-2122post_task-rest_run-1_part-phase_bold.nii';
@@ -107,7 +107,7 @@ doPlot = true;
 plotSlice(phas,uphas,fl,harmfields,exampleSlice);
 
 %% Decompose the Image using the SVD
-[respvol,timeVector] = getRespComp(inputImage,s,TR,interpolationFactor,doPlot);
+[respvol,timeVector,zero_ord_vol] = getRespComp(inputImage,s,TR,interpolationFactor,doPlot);
 
 %% Project Respiratory correlated field onto spherical harmonics
 
@@ -241,17 +241,17 @@ smallMask = imresize3(mask,[20,20,12]);
 
 
 %% respcomp choice
-% respcomp = volTR_coeffs(:,1);
-respcomp = sliceTR_coeffs(:,1);
+respcompVOL = volTR_coeffs(:,1); % NEED
+respcompSL = sliceTR_coeffs(:,1); % NEED
 
-%% Prepare physLog and plot
+%% Prepare physLog
 pLogFileName = string(fullfile(logDir,logFile));
 logfiles.cardiac = pLogFileName;
 logfiles.respiration = pLogFileName;
 logfiles.sampling_interval = 1/500;
 logfiles.relative_start_acquisition = 0;
-phaseSign = -1;
-doTRComp = 0;
+phaseSign = 1; % NEED
+doTRComp = 0; % NEED
 
 if phaseSign == -1
     doTRComp = 1;
@@ -266,33 +266,46 @@ scanStart = find(physLogTable.mark>20);
 t2 = t2(scanStart+1:end);
 [physLogResp,fh] = tapas_physio_filter_respiratory(r(scanStart+1:end),t2(2)-t2(1),[],true,true); 
 
+
+
+%% SLICE TR Processing
 TR = 1.150/19;
 
-timeVector = (1:length(respcomp)) * 1.15/19*interpolationFactor - 1.15/19*interpolationFactor;
+timeVector = (1:length(respcompSL)) * 1.15/19*interpolationFactor - 1.15/19*interpolationFactor;
 scanTime = mreconDat.Parameter.Labels.ScanDuration;
-phaseTime = timeVector(end);
+phaseTimeSL = timeVector(end);
 samplingRate = length(physLogResp) / scanTime;
 
-% Plot the processed respiratory phase (naive approach)
-filteredTrace = lowpass(respcomp,0.1,interpolationFactor/TR); % low pass filter to get the jumps out of the data
-respPhase = calculateRespPhase(respcomp);
-fmriTime = timeVector + (scanTime - phaseTime + 0*TR/2)/2 + doTRComp*TR/2 * 19;
-figure();
-plot(fmriTime,respPhase);
-title('Respiratory Phase during FMRI Acquisition');
-xlabel('Time (s)');
-ylabel('Respiratory Phase \in [-\pi, \pi]');
-hold on;
+sliceTime = timeVector + (scanTime - phaseTimeSL + 0*TR/2)/2 + doTRComp*TR/2 * 19; % NEED
+physLogTime = linspace(0,scanTime,length(physLogResp)); % NEED
 
-% Load the physlog file and process as before (naive approach)
-resampledPhysLogTrace = physLogResp; %resample(physLogResp,interpolationFactor,round(samplingRate*TR)); % resample to same rate as the fmri-derived resp data
-filteredPhysLogTrace = lowpass(resampledPhysLogTrace,20,520); % low pass filter to remove weird data jumps
-physLogTime = linspace(0,scanTime,length(filteredPhysLogTrace));
-respPhasePhysLog = calculateRespPhase(filteredPhysLogTrace);
-plot(physLogTime,respPhasePhysLog);
-xlabel('Time (s)');
-ylabel('Respiratory Phase \in [-\pi, \pi]');
-legend('fMRI phase data (Slice TR)','breathing belt data');
+timeVectorVol = (1:length(respcompVOL))*1.15*interpolationFactor - 1.15*interpolationFactor;
+phaseTimeVol = timeVectorVol(end);
+volTime = timeVectorVol + (scanTime - phaseTimeVol) + doTRComp*1.15/19; % NEED
+
+%%
+% % Plot the processed respiratory phase (naive approach)
+% filteredTrace = lowpass(respcompSL,0.1,interpolationFactor/TR); % low pass filter to get the jumps out of the data
+% respPhase = calculateRespPhase(respcompSL);
+% figure();
+% plot(fmriTime,respPhase);
+% title('Respiratory Phase during FMRI Acquisition');
+% xlabel('Time (s)');
+% ylabel('Respiratory Phase \in [-\pi, \pi]');
+% hold on;
+% % Load the physlog file and process as before (naive approach)
+% resampledPhysLogTrace = physLogResp; %resample(physLogResp,interpolationFactor,round(samplingRate*TR)); % resample to same rate as the fmri-derived resp data
+% filteredPhysLogTrace = lowpass(resampledPhysLogTrace,20,520); % low pass
+% filter to remove weird data jumps
+% respPhasePhysLog = calculateRespPhase(filteredPhysLogTrace);
+% plot(physLogTime,respPhasePhysLog);
+% xlabel('Time (s)');
+% ylabel('Respiratory Phase \in [-\pi, \pi]');
+% legend('fMRI phase data (Slice TR)','breathing belt data');
+
+%% Process Vol TR Phase Data
+
+
 
 %% Generate Figure
 % The standard values for colors saved in PLOT_STANDARDS() will be accessed from the variable PS
@@ -303,22 +316,24 @@ PS = PLOT_STANDARDS();
 figure(1);
 fig1_comps.fig = gcf;
 hold on
-fig1_comps.p1 = plot(fmriTime,phaseSign*respcomp./max(respcomp));
-fig1_comps.p2 = plot(physLogTime,filteredPhysLogTrace);
+fig1_comps.p1 = plot(volTime,respcompVOL./max(respcompVOL));
+fig1_comps.p2 = plot(sliceTime,phaseSign*respcompSL./max(respcompSL));
+fig1_comps.p3 = plot(physLogTime,physLogResp);
 
 % ADD LABELS, TITLE, LEGEND
 title('Respiratory Trace during FMRI Acquisition');
 xlabel('Time (s)');
 ylabel('Respiratory Trace (a.u)');
-legend([fig1_comps.p1, fig1_comps.p2], 'B_0 Fluctuation (Slice TR)','Breathing Belt');
+legend([fig1_comps.p1, fig1_comps.p2, fig1_comps.p3], 'B_0 Fluctuation (Volume TR)','B_0 Fluctuation (Slice TR)','Breathing Belt');
 legendX = .82; legendY = .87; legendWidth = 0.02; legendHeight = 0.02;
 fig1_comps.legendPosition = [legendX, legendY, legendWidth, legendHeight];
 % If you want the tightest box set width and height values very low matlab automatically sets the tightest box
 %========================================================
 % SET PLOT PROPERTIES
 % Choices for COLORS can be found in ColorPalette.png
-set(fig1_comps.p1, 'LineStyle', '-', 'LineWidth', 2, 'Color',PS.Blue3);
-set(fig1_comps.p2, 'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyRed);
+set(fig1_comps.p1, 'LineStyle', '-', 'LineWidth', 2, 'Color',PS.Green1);
+set(fig1_comps.p2, 'LineStyle', '-', 'LineWidth', 2, 'Color',PS.Blue3);
+set(fig1_comps.p3, 'LineStyle', '-.', 'LineWidth', 2, 'Color', PS.MyRed);
 %========================================================
 % INSTANTLY IMPROVE AESTHETICS-most important step
 STANDARDIZE_FIGURE(fig1_comps);
@@ -337,4 +352,4 @@ STANDARDIZE_FIGURE(fig1_comps);
 % rms(tsout1.Time(locs(idx2)) - tsout2.Time(locs2))
 
 %% Save Things for Plotting
-save(fileLabel,"sliceTR_coeffs","fmriTime","physLogTime","filteredPhysLogTrace","respcomp","phaseSign");
+save(fileLabel,"sliceTR_coeffs","volTR_coeffs","sliceTime","volTime","physLogTime","physLogResp","respcompVOL","respcompSL","phaseSign", "doTRComp");

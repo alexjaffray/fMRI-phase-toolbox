@@ -1,4 +1,4 @@
-function [respvol,timeVector] = getRespComp(inputImage,s,TR,interpolationFactor,doPlot)
+function [respvol,timeVector, zero_ord_vol] = getRespComp(inputImage,s,TR,interpolationFactor,doPlot)
 
 imSize = s(1:3);
 
@@ -10,6 +10,7 @@ p = reshape(inputImage,prod(imSize),s(4));
 % first component
 componentVector = 1;
 comp1 = recomposeSVD(U,S,V,componentVector,imSize);
+zero_ord_vol = comp1;
 
 % second component
 componentVector = 2;
