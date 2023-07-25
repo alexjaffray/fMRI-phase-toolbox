@@ -202,5 +202,43 @@ caxis(demoh,[-0.015 0.015]);
 % 
 % close(V);
 
+%% Get Group Metrics
+
+%% Plot Spherical Harmonics for all datasets
+
+metExc = zeros(1,10);
+
+close all;
+for i = 1:length(dataList)
+    
+    tmp = load(dataList(i));
+    % Plot Each Coefficient of Varying Order (volume TR)
+    % plotSphericalHarmonics(tmp.volTR_coeffs,TR/interpolationFactor*(1:n_timepoints));
+    % Plot Each Coefficient of Varying Order (Slice TR, Filtered Notch + LP)
+    % plotSphericalHarmonics(tmp.sliceTR_coeffs,TR/interpolationFactor/n_exc*(1:(n_timepoints*n_exc)));
+    
+    fieldVec = tmp.volTR_coeffs*dmat2';
+    outputField = reshape(fieldVec,size(tmp.volTR_coeffs,1),191,191,118);
+    maxVal  = 0;
+    minVal = 0;
+    size(outputField)
+    for ll = 1:260
+        
+        t23 = max(squeeze(outputField(ll,:,:,:)).*smallMask,[],'all');
+        t21 = min(squeeze(outputField(ll,:,:,:)).*smallMask,[],'all');
+        
+        if t23 > maxVal
+            maxVal = t23;
+        end
+        if t21 < minVal
+            minVal = t21;
+        end
+        
+    end
+    
+    metExc(i) = maxVal - minVal;
+    
+    
+end
 
 

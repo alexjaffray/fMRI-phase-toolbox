@@ -115,6 +115,9 @@ plotSlice(phas,uphas,fl,harmfields,exampleSlice);
 [xxmat,yymat,zzmat] = meshgrid(-47.5:1:47.5,-47.5:1:47.5,-28:1:28);
 order = ones(96,96,57);
 
+circmask = ones(96,96,57);
+circmask = circmask((xxmat.^2 + yymat.^2 + zzmat.^2).^0.5 .< 40)
+
 n_timepoints = length(timeVector);
 mb = 3;
 n_exc = size(order,3)/mb;
