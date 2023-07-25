@@ -20,7 +20,7 @@ run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where
 run('/srv/data/ajaffray/MRecon-5.0.11/startup.m');
 
 %% Change this for each run
-fileLabel = "/srv/data/ajaffray/fMRI-phase-toolbox/data/M20Post.mat";
+fileLabel = "/srv/data/ajaffray/fMRI-phase-toolbox/data/christina.mat";
 
 %% Set these for current protocol
 angleFile = 'sub-M02_ses-2122post_task-rest_run-1_part-phase_bold.nii';
@@ -205,41 +205,6 @@ plotSphericalHarmonics(volTR_coeffs,TR/interpolationFactor*(1:n_timepoints));
 %% Plot Each Coefficient of Varying Order (Slice TR, Filtered Notch + LP)
 plotSphericalHarmonics(sliceTR_coeffs,TR/interpolationFactor/n_exc*(1:(n_timepoints*n_exc)));
 
-%% Generate small grid of x y and z positions to visualize the spherical harmonic evolution
-
-[xxv,yyv,zzv] = meshgrid(-47.5:5:47.5,-47.5:5:47.5,-28:4.75:28);
-
-xx = xxv(:);
-yy = yyv(:);
-zz = zzv(:);
-
-dmat2 = [ones(size(xx)) xx yy zz xx.*yy yy.*zz xx.*zz xx.^2 - yy.^2 2*zz.^2 - xx.^2 - yy.^2 xx.*yy.*zz zz.*xx.^2 - zz.*yy.^2 3*yy.*xx.^2 - yy.^3 (5*zz.^2 - (xx.^2 + yy.^2 + zz.^2)).*yy (5*zz.^2 - (xx.^2 + yy.^2 + zz.^2)).*xx 5*zz.^3-3*(xx.^2 + yy.^2 + zz.^2).*zz xx.^3 - 3*xx.*yy.^2];
-
-outputField = reshape(sliceTR_coeffs*dmat2',size(sliceTR_coeffs,1),20,20,12);
-smallMask = imresize3(mask,[20,20,12]);
-
-% %% Write Video
-% 
-% V = VideoWriter('myFile2.avi');
-% V.VideoCompressionMethod
-% open(V)
-% 
-% imagesc(squeeze(outputField(20,:,:,7)).*squeeze(smallMask(:,:,7)),[-0.2,0.2])
-% colormap(turbo)
-% axis tight manual
-% set(gca,'nextplot','replacechildren');
-% for k = 1:(size(outputField,1))
-%     imagesc(squeeze(outputField(k,:,:,7)).*squeeze(smallMask(:,:,7)))
-%     frame = getframe(gcf);
-%     writeVideo(V,frame);
-%     
-%     k
-%     
-% end
-% 
-% close(V);
-
-
 %% respcomp choice
 respcompVOL = volTR_coeffs(:,1); % NEED
 respcompSL = sliceTR_coeffs(:,1); % NEED
@@ -353,3 +318,6 @@ STANDARDIZE_FIGURE(fig1_comps);
 
 %% Save Things for Plotting
 save(fileLabel,"sliceTR_coeffs","volTR_coeffs","sliceTime","volTime","physLogTime","physLogResp","respcompVOL","respcompSL","phaseSign", "doTRComp");
+
+%% Save the mask
+save("/srv/data/ajaffray/fMRI-phase-toolbox/data/mask_christina.mat","mask0");
