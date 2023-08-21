@@ -1,11 +1,12 @@
 %% PLOTTING FOR PAPER v2 Proc
 close all;
 dataList = ["data/christina.mat","data/M13.mat","data/M20.mat","data/M20Post.mat","data/M35.mat","data/M35Post.mat","data/M24.mat","data/M37.mat","data/M40.mat","data/M40Post.mat"];
-phaseVec = [-1 1 1 1 -1 -1 1 1 -1 -1];
+phaseVec = [-1 -1 1 1 -1 -1 1 1 -1 -1];
 scale = zeros(10,260);
 
 PS = PLOT_STANDARDS();
 
+%%
 figure();
 for i = 1:length(dataList)
     
@@ -46,8 +47,35 @@ for i = 1:length(dataList)
         xlabel('Scan Time [s]');
     
     end
+    
+    
         
 end
+%%
+
+peakCell = {};
+figure();
+
+for i = 1:length(dataList)
+   
+    tmp = load(dataList(i));
+    tmpResp = tmp.respcompVOL/max(tmp.respcompVOL);
+
+    subplot(10,1,i);
+    [f,t] = findpeaks(tmp.physLogResp,tmp.physLogTime,'MinPeakProminence',0.15)
+    findpeaks(tmp.physLogResp,tmp.physLogTime,'MinPeakProminence',0.15)
+    hold on
+    [f2,t2] = findpeaks(-1*tmpResp,tmp.volTime,'MinPeakProminence',0.15)
+    findpeaks(tmpResp,tmp.volTime,'MinPeakProminence',0.15)
+    
+    
+    peakCell{i,1} = f;
+    peakCell{i,2} = t';
+    peakCell2{i,1} = f2;
+    peakCell2{i,2} = t2';
+end
+
+%%
 
 figure();
 for i = 1:length(dataList)
