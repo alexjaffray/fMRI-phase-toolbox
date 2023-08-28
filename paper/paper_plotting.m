@@ -54,6 +54,7 @@ end
 %%
 
 peakCell = {};
+peakCell2 = {};
 figure();
 
 for i = 1:length(dataList)
@@ -65,7 +66,7 @@ for i = 1:length(dataList)
     [f,t] = findpeaks(tmp.physLogResp,tmp.physLogTime,'MinPeakProminence',0.15)
     findpeaks(tmp.physLogResp,tmp.physLogTime,'MinPeakProminence',0.15)
     hold on
-    [f2,t2] = findpeaks(-1*tmpResp,tmp.volTime,'MinPeakProminence',0.15)
+    [f2,t2] = findpeaks(tmpResp,tmp.volTime,'MinPeakProminence',0.15)
     findpeaks(tmpResp,tmp.volTime,'MinPeakProminence',0.15)
     
     
@@ -74,6 +75,21 @@ for i = 1:length(dataList)
     peakCell2{i,1} = f2;
     peakCell2{i,2} = t2';
 end
+
+%%
+figure();
+for i = 1:length(dataList)
+   
+    subplot(10,1,i);
+    plot(peakCell{i,2});
+    hold on;
+    plot(peakCell2{i,2});
+    
+    
+    
+end
+
+
 
 %%
 
@@ -268,5 +284,7 @@ for i = 1:length(dataList)
     
     
 end
+
+
 
 
