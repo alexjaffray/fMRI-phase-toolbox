@@ -44,7 +44,7 @@ interpTime5 = [];
 
 if doInterpolation
     
-    % interpolate the original image in time
+    % interpolate the original image in timetimeVector
     interpAbs = interpft(inputImage,s(4)*interpolationFactor,4);
     
     % interpolate the 5 SVD components in time
@@ -85,7 +85,7 @@ d3 = getROImean(interpTime3,range2,range1,selectedSlice,TR/interpolationFactor);
 d4 = getROImean(interpTime4,range2,range1,selectedSlice,TR/interpolationFactor);
 d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
 
-% Determine component of svd corresponding to breathing flux
+% Determine component of svd corresponding to breathing flux (voxel-free)
 respcomp = [];
 
 p1 = norm(diff(raw1(1,:)'),1);
