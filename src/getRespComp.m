@@ -9,24 +9,24 @@ p = reshape(inputImage,prod(imSize),s(4));
 % Take the first 5 components of the SVD
 % first component
 componentVector = 1;
-comp1 = recomposeSVD(U,S,V,componentVector,imSize);
+[comp1, raw1] = recomposeSVD(U,S,V,componentVector,imSize);
 zero_ord_vol = comp1;
 
 % second component
 componentVector = 2;
-comp2 = recomposeSVD(U,S,V,componentVector,imSize);
+[comp2, raw2] = recomposeSVD(U,S,V,componentVector,imSize);
 
 % third component
 componentVector = 3;
-comp3 = recomposeSVD(U,S,V,componentVector,imSize);
+[comp3, raw3] = recomposeSVD(U,S,V,componentVector,imSize);
 
 % fourth component
 componentVector = 4;
-comp4 = recomposeSVD(U,S,V,componentVector,imSize);
+[comp4, raw4] = recomposeSVD(U,S,V,componentVector,imSize);
 
 % fifth component
 componentVector = 5;
-comp5 = recomposeSVD(U,S,V,componentVector,imSize);
+[comp5, raw5] = recomposeSVD(U,S,V,componentVector,imSize);
 
 % Interpolate whole volume using zero-filling along the time dimension to help visualize things
 if interpolationFactor < 1
@@ -88,11 +88,11 @@ d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
 % Determine component of svd corresponding to breathing flux
 respcomp = [];
 
-p1 = norm(diff(d1),1);
-p2 = norm(diff(d2),1);
-p3 = norm(diff(d3),1);
-p4 = norm(diff(d4),1);
-p5 = norm(diff(d5),1);
+p1 = norm(diff(raw1(1,:)'),1);
+p2 = norm(diff(raw2(2,:)'),1);
+p3 = norm(diff(raw3(3,:)'),1);
+p4 = norm(diff(raw4(4,:)'),1);
+p5 = norm(diff(raw5(5,:)'),1);
 
 respvol = [];
 
