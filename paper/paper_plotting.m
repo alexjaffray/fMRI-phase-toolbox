@@ -27,30 +27,56 @@ for i = 1:length(dataList)
     ax.YAxis(1).Color = 'k';
     ax.YAxis(2).Color = 'k';
     set(ax.YAxis(1),'TickValues',[]);
-
+    
     if i ~= 10
         
         set(ax,'XTickLabel',[]);
         
-            
+        
     end
-
+    
     
     if i == 1
         
-        legend('Proposed Method (Volume TR)','Breathing Belt','Location','northeast');
+        a_dim_1 = [0.130307855626327,0.904948554630083,0.011942675159236,0.019578147966682];
+        b_dim_1 = [0.237526539278131,0.904948554630083,0.011942675159236,0.019578147966682];
+        c_dim_1 = [0.472929936305732,0.904948554630082,0.011942675159236,0.019578147966682];
+        d_dim_1 = [0.517515923566879,0.904948554630082,0.011942675159236,0.019578147966682];
+        e_dim_1 = [0.567675159235668,0.904948554630081,0.011942675159236,0.019578147966682];
         
+        xline(43,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack,'HandleVisibility','off');
+        xline(137,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack,'HandleVisibility','off');
+        xline(155,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack,'HandleVisibility','off');
+        xline(175,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack,'HandleVisibility','off');
+        
+        
+        a_ann_1 = annotation('textbox',a_dim_1,'String','A','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+        b_ann_1 = annotation('textbox',b_dim_1,'String','B','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+        c_ann_1 = annotation('textbox',c_dim_1,'String','C','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+        d_ann_1 = annotation('textbox',d_dim_1,'String','D','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+        e_ann_1 = annotation('textbox',e_dim_1,'String','C','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+        
+        legend('Proposed Method','Breathing Belt','Location','northeast','NumColumns',2,'FontSize',18);
+        legend boxoff
     end
     
     if i == 10
         
         xlabel('Scan Time [s]');
-    
+        
     end
     
+    xlim([0 310]);
     
-        
+    
 end
+
+%%
+f = gcf;
+f.Position = [0 0 3840 1920];
+exportgraphics(gcf,'resp_trace_compare_voltr.pdf','ContentType','vector')
+
+
 %%
 
 peakCell = {};
@@ -58,10 +84,10 @@ peakCell2 = {};
 figure();
 
 for i = 1:length(dataList)
-   
+    
     tmp = load(dataList(i));
     tmpResp = tmp.respcompVOL/max(tmp.respcompVOL);
-
+    
     subplot(10,1,i);
     [f,t] = findpeaks(tmp.physLogResp,tmp.physLogTime,'MinPeakProminence',0.15)
     findpeaks(tmp.physLogResp,tmp.physLogTime,'MinPeakProminence',0.15)
@@ -79,7 +105,7 @@ end
 %%
 figure();
 for i = 1:length(dataList)
-   
+    
     subplot(10,1,i);
     plot(peakCell{i,2});
     hold on;
@@ -107,29 +133,29 @@ for i = 1:length(dataList)
     set(ax,'FontWeight','bold','Box','on','TickLength',[.01 .01],'XMinorTick','on','YMinorTick','on','YGrid','off','LineWidth',1.5,'ylim',[-1.2 1.2],'FontSize',18);
     set(ax.XAxis(1),'TickDirection','in');
     set(ax.YAxis(1),'TickDirection','out');
-
+    
     yyaxis left
     ylabel(strjoin({'#',num2str(i)}));
     ax.YAxis(1).Color = 'k';
     ax.YAxis(2).Color = 'k';
     set(ax.YAxis(1),'TickValues',[]);
-
+    
     if i ~= 10
         
         set(ax,'XTickLabel',[]);
-       
+        
     end
     
     if i == 1
         
         legend('Proposed Method (Slice TR)','Breathing Belt','Location','northeast');
-
+        
     end
     
     if i == 10
         
         xlabel('Scan Time [s]');
-    
+        
     end
 end
 
@@ -146,15 +172,18 @@ for i = 1
     
     tmp = load(dataList(i));
     % Plot Each Coefficient of Varying Order (volume TR)
-    plotSphericalHarmonics(tmp.volTR_coeffs,TR/interpolationFactor*(1:n_timepoints));
+    plotSphericalHarmonics(tmp.volTR_coeffs,TR/interpolationFactor*(1:n_timepoints),'vol_tr_sh_fig.pdf');
     % Plot Each Coefficient of Varying Order (Slice TR, Filtered Notch + LP)
-    plotSphericalHarmonics(tmp.sliceTR_coeffs,TR/interpolationFactor/n_exc*(1:(n_timepoints*n_exc)));
+    plotSphericalHarmonics(tmp.sliceTR_coeffs,TR/interpolationFactor/n_exc*(1:(n_timepoints*n_exc)),'slice_tr_sh_fig.pdf');
     
     
 end
 
 %% Plot depiction of harmonics
 % Generate small grid of x y and z positions to visualize the spherical harmonic evolution
+
+load mask_christina.mat
+
 tmp = load(dataList(1));
 
 [xxv,yyv,zzv] = meshgrid(-47.5:.5:47.5,-47.5:.5:47.5,-28:0.475:28);
@@ -179,7 +208,7 @@ xco = 40:150;
 yco = 28:160;
 
 for i = 1:length(timePoints)
-   
+    
     subplot(3,4,i);
     
     intermIm = squeeze(outputField(timePoints(i),yco,xco,selslice)).*squeeze(smallMask(yco,xco,selslice));
@@ -196,6 +225,7 @@ for i = 1:length(timePoints)
     set(ax,'YTick',[]);
     set(ax,'YTickLabel',[]);
     set(ax,'XTickLabel',[]);
+    pbaspect([1 1 1]);
     title(strjoin({'t = ',num2str(timePoints(i)*1.15),'s'}));
 end
 
@@ -207,6 +237,7 @@ ax = gca;
 set(ax,'FontWeight','bold','Box','on','TickLength',[.01 .01],'XMinorTick','on','YMinorTick','on','YGrid','off','LineWidth',1.5, 'FontSize',18);
 set(ax.XAxis,'TickDirection','in');
 set(ax.YAxis,'TickDirection','out');
+xlim([0 310]);
 xlabel('Scan Time [s]');
 ylabel('B_0 Fluctuation [ppm]');
 xline(tmp.volTime(timePoints(1)),'LineStyle','-.','LineWidth',1.5);
@@ -220,18 +251,22 @@ c.Label.String = "B_0 [ppm]";
 colormap(c,'turbo');
 caxis(demoh,[-0.015 0.015]);
 
+f = gcf;
+f.Position = [0 0 3840 1920];
+exportgraphics(gcf,'sh_depiction_voltr.pdf','ContentType','vector')
+
 % %% Write Video
-% 
+%
 % inField = interp1(tmp.volTime,plat,linspace(tmp.volTime(1),tmp.volTime(end),n_interp_pts),'cubic');
 % outputField = reshape(inField,n_interp_pts,191,191,118);
-% 
+%
 % V = VideoWriter('myFile2.avi');
 % V.VideoCompressionMethod
 % open(V)
-% 
+%
 % imagesc(squeeze(outputField(100,:,:,selslice)).*squeeze(smallMask(:,:,selslice)),[-0.02,0.02])
-% 
-% %% 
+%
+% %%
 % colormap(turbo)
 % axis tight manual
 % set(gca,'nextplot','replacechildren');
@@ -239,11 +274,11 @@ caxis(demoh,[-0.015 0.015]);
 %     imagesc(squeeze(outputField(k,:,:,selslice)).*squeeze(smallMask(:,:,selslice)))
 %     frame = getframe(gcf);
 %     writeVideo(V,frame);
-%     
+%
 %     k
-%     
+%
 % end
-% 
+%
 % close(V);
 
 %% Get Group Metrics

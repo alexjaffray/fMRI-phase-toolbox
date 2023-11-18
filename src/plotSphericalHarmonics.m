@@ -1,4 +1,4 @@
-function plotSphericalHarmonics(shmat,time)
+function plotSphericalHarmonics(shmat,time, filename)
 
 PS = PLOT_STANDARDS();
 
@@ -121,6 +121,10 @@ end
 
 lg = legend([h1;h2;h3;h4],'Orientation','Horizontal','FontSize',18,'NumColumns',4);
 lg.Layout.Tile = "South";
+
+f = gcf;
+f.Position = [0 0 3840 1920];
+exportgraphics(gcf,filename,'ContentType','vector')
 
 end
 

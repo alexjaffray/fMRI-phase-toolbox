@@ -36,7 +36,7 @@ magFile = 'sub-M02_ses-2122post_task-rest_run-1_part-mag_bold.nii';
 % end
 
 %% Ask for data files (.rec, .par files must have lowercase file tails)
-dataFormat = "rec";
+dataFormat = "nifti";
 
 switch dataFormat
     case "rec"
@@ -55,6 +55,10 @@ switch dataFormat
         magnitudeData = niftiread(fullfile(magDir,magFile));
 
 end
+
+%% doRotate
+angleData = rot90(angleData);
+magnitudeData = rot90(magnitudeData);
 
 %% Ask User for the phys log file!
 [logFile,logDir] = uigetfile("*.log","Select the Relevant PhysLog File");
@@ -116,7 +120,7 @@ plotSlice(phas,uphas,fl,harmfields,exampleSlice);
 order = ones(96,96,57);
 
 circmask = ones(96,96,57);
-circmask = circmask((xxmat.^2 + yymat.^2 + zzmat.^2).^0.5 .< 40)
+circmask = circmask((xxmat.^2 + yymat.^2 + zzmat.^2).^0.5 < 40);
 
 n_timepoints = length(timeVector);
 mb = 3;
@@ -203,14 +207,18 @@ end
 toc
 
 %% Plot Each Coefficient of Varying Order (volume TR)
-plotSphericalHarmonics(volTR_coeffs,TR/interpolationFactor*(1:n_timepoints));
+plotSphericalHarmonics(volTR_coeffs,TR/interpolationFactor*(1:n_timepoints),'voltr_fig.pdf');
 
 %% Plot Each Coefficient of Varying Order (Slice TR, Filtered Notch + LP)
-plotSphericalHarmonics(sliceTR_coeffs,TR/interpolationFactor/n_exc*(1:(n_timepoints*n_exc)));
+plotSphericalHarmonics(sliceTR_coeffs,TR/interpolationFactor/n_exc*(1:(n_timepoints*n_exc)),'slicetr_fig.pdf');
 
 %% respcomp choice
 respcompVOL = volTR_coeffs(:,1); % NEED
 respcompSL = sliceTR_coeffs(:,1); % NEED
+
+%%
+load pipeline/scan_params.mat
+
 
 %% Prepare physLog
 pLogFileName = string(fullfile(logDir,logFile));
@@ -218,7 +226,7 @@ logfiles.cardiac = pLogFileName;
 logfiles.respiration = pLogFileName;
 logfiles.sampling_interval = 1/500;
 logfiles.relative_start_acquisition = 0;
-phaseSign = 1; % NEED
+phaseSign = -1; % NEED
 doTRComp = 0; % NEED
 
 if phaseSign == -1
@@ -240,7 +248,7 @@ t2 = t2(scanStart+1:end);
 TR = 1.150/19;
 
 timeVector = (1:length(respcompSL)) * 1.15/19*interpolationFactor - 1.15/19*interpolationFactor;
-scanTime = mreconDat.Parameter.Labels.ScanDuration;
+% scanTime = mreconDat.Parameter.Labels.ScanDuration;
 phaseTimeSL = timeVector(end);
 samplingRate = length(physLogResp) / scanTime;
 
@@ -251,27 +259,117 @@ timeVectorVol = (1:length(respcompVOL))*1.15*interpolationFactor - 1.15*interpol
 phaseTimeVol = timeVectorVol(end);
 volTime = timeVectorVol + (scanTime - phaseTimeVol) + doTRComp*1.15/19; % NEED
 
-%%
-% % Plot the processed respiratory phase (naive approach)
-% filteredTrace = lowpass(respcompSL,0.1,interpolationFactor/TR); % low pass filter to get the jumps out of the data
-% respPhase = calculateRespPhase(respcompSL);
-% figure();
-% plot(fmriTime,respPhase);
-% title('Respiratory Phase during FMRI Acquisition');
-% xlabel('Time (s)');
-% ylabel('Respiratory Phase \in [-\pi, \pi]');
-% hold on;
-% % Load the physlog file and process as before (naive approach)
-% resampledPhysLogTrace = physLogResp; %resample(physLogResp,interpolationFactor,round(samplingRate*TR)); % resample to same rate as the fmri-derived resp data
-% filteredPhysLogTrace = lowpass(resampledPhysLogTrace,20,520); % low pass
-% filter to remove weird data jumps
-% respPhasePhysLog = calculateRespPhase(filteredPhysLogTrace);
-% plot(physLogTime,respPhasePhysLog);
-% xlabel('Time (s)');
-% ylabel('Respiratory Phase \in [-\pi, \pi]');
-% legend('fMRI phase data (Slice TR)','breathing belt data');
+%% Hilber transform respiratory phase or retroicor resp phase computed separately
 
-%% Process Vol TR Phase Data
+ts_phase_derived = timeseries(respcompVOL, volTime);
+ts_physlog_derived = timeseries(physLogResp, physLogTime);
+dt = 0.575;
+
+phase_derived_times = volTime(1):dt:volTime(end-1);
+physlog_derived_times = physLogTime(1):dt:physLogTime(end-1);
+
+ts_phase_derived_rs = resample(ts_phase_derived, phase_derived_times);
+ts_physlog_derived_rs = resample(ts_physlog_derived, physlog_derived_times);
+
+% Plot the processed respiratory phase (naive approach)
+filteredTrace = respcompVOL;% lowpass(respcompVOL,0.1,interpolationFactor/TR); % low pass filter to get the jumps out of the data
+respPhase = calculateRespPhase(ts_phase_derived_rs.Data, ts_phase_derived_rs.Time, true);
+
+%% Pull in data from the figure separately
+fig_old = openfig('paper/Fig_7.fig');
+all_ax = findobj(fig_old, 'type', 'axes');
+all_lines = arrayfun(@(A) findobj(A, 'type', 'line'), all_ax, 'uniform', 0);
+all_XData = cellfun(@(L) get(L,'XData'), all_lines, 'uniform', 0);
+all_YData = cellfun(@(L) get(L,'YData'), all_lines, 'uniform', 0);
+for axIdx = 1 : numel(all_YData)
+    if iscell(all_YData{axIdx})
+        mask = cellfun(@(Y) ~isequal(Y, [0 0]), all_YData{axIdx});
+        all_XData{axIdx} = all_XData{axIdx}(mask);
+        all_YData{axIdx} = all_YData{axIdx}(mask);
+    else
+        all_XData{axIdx} = {all_XData{axIdx}};
+        all_YData{axIdx} = {all_YData{axIdx}};
+    end
+end
+
+%%
+figure();
+subplot(2,1,2);
+plot(ts_phase_derived_rs.Time,respPhase - pi,'LineStyle', '-', 'LineWidth', 2, 'Color',PS.Blue4);
+ylabel('Respiratory Phase [rad]');
+ylim([-4.5, 4.5]);
+ax = gca;
+set(ax,'FontWeight','bold','Box','on','TickLength',[.01 .01],'XMinorTick','on','YMinorTick','on','YGrid','off','LineWidth',1.5, 'FontSize',18);
+set(ax.XAxis,'TickDirection','in');
+set(ax.YAxis,'TickDirection','out');
+xlim([0 310]);
+xlabel('Scan Time [s]');
+hold on;
+% Load the physlog file and process as before (naive approach)
+resampledPhysLogTrace = physLogResp; %resample(physLogResp,interpolationFactor,round(samplingRate*TR)); % resample to same rate as the fmri-derived resp data
+filteredPhysLogTrace = lowpass(resampledPhysLogTrace,20,500); % low pass
+% filter to remove weird data jumps
+respPhasePhysLog = calculateRespPhase(ts_physlog_derived_rs.Data, ts_physlog_derived_rs.Time, true);
+plot(ts_physlog_derived_rs.Time,respPhasePhysLog - pi,'LineStyle', '-.', 'LineWidth', 2, 'Color', PS.MyRed);
+ylim([-4.5, 4.5]);
+xlim([0 310]);
+xline(43,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack);
+xline(137,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack);
+xline(155,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack);
+xline(175,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack);
+legend('Proposed Method','Breathing Belt','Location','northeast');
+dim = [0.764493522526527,0.115623044497429,0.24600639478195,0.033419023695852];
+str = 'Hilbert Transform Method';
+annotation('textbox',dim,'String',str,'FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+
+subplot(2,1,1);
+plot(all_XData{1}{3},all_YData{1}{3},'LineStyle', '-', 'LineWidth', 2, 'Color',PS.Blue4);
+ylabel('Respiratory Phase [rad]');
+ylim([-4.5, 4.5]);
+ax = gca;
+set(ax,'FontWeight','bold','Box','on','TickLength',[.01 .01],'XMinorTick','on','YMinorTick','on','YGrid','off','LineWidth',1.5, 'FontSize',18);
+set(ax.XAxis,'TickDirection','in');
+set(ax.YAxis,'TickDirection','out');
+xlim([0 310]);
+xlabel('Scan Time [s]');
+hold on;
+plot(all_XData{1}{4},all_YData{1}{4},'LineStyle', '-.', 'LineWidth', 2, 'Color', PS.MyRed);
+ylim([-4.5, 4.5]);
+xlim([0 310]);
+xline(43,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack);
+xline(137,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack);
+xline(155,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack);
+xline(175,'LineStyle', '-', 'LineWidth', 2, 'Color', PS.MyBlack);
+legend('Proposed Method','Breathing Belt','Location','northeast');
+dim = [0.764493522526527,0.593330050866854,0.24600639478195,0.033419023695852];
+str = 'Histogram-based Method';
+annotation('textbox',dim,'String',str,'FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+a_dim_1 = [0.130307855626327,0.904948554630083,0.011942675159236,0.019578147966682];
+b_dim_1 = [0.237526539278131,0.904948554630083,0.011942675159236,0.019578147966682];
+c_dim_1 = [0.472929936305732,0.904948554630082,0.011942675159236,0.019578147966682];
+d_dim_1 = [0.517515923566879,0.904948554630082,0.011942675159236,0.019578147966682];
+e_dim_1 = [0.567675159235668,0.904948554630081,0.011942675159236,0.019578147966682];
+a_dim_2 = [0.130307855626327,0.431161195492403,0.011942675159236,0.019578147966682];
+b_dim_2 = [0.237526539278131,0.431161195492403,0.011942675159236,0.019578147966682];
+c_dim_2 = [0.472929936305732,0.431161195492403,0.011942675159236,0.019578147966682];
+d_dim_2 = [0.517515923566879,0.431161195492403,0.011942675159236,0.019578147966682];
+e_dim_2 = [0.567675159235668,0.431161195492403,0.011942675159236,0.019578147966682];
+a_ann_1 = annotation('textbox',a_dim_1,'String','A','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+b_ann_1 = annotation('textbox',b_dim_1,'String','B','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+c_ann_1 = annotation('textbox',c_dim_1,'String','C','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+d_ann_1 = annotation('textbox',d_dim_1,'String','D','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+e_ann_1 = annotation('textbox',e_dim_1,'String','C','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+a_ann_2 = annotation('textbox',a_dim_2,'String','A','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+b_ann_2 = annotation('textbox',b_dim_2,'String','B','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+c_ann_2 = annotation('textbox',c_dim_2,'String','C','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+d_ann_2 = annotation('textbox',d_dim_2,'String','D','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+e_ann_2 = annotation('textbox',e_dim_2,'String','C','FitBoxToText','on','FontWeight','bold','FontSize',16,'LineStyle','none');
+
+
+%%
+plot(all_XData{1}{3},all_YData{1}{3});
+hold on;
+plot(all_XData{1}{4},all_YData{1}{4});
 
 
 
