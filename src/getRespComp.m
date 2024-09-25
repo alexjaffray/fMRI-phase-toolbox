@@ -1,4 +1,4 @@
-function [respvol,timeVector, zero_ord_vol] = getRespComp(inputImage,s,TR,interpolationFactor,doPlot)
+function [respvol,timeVector, zero_ord_vol, other_comps] = getRespComp(inputImage,s,TR,interpolationFactor,doPlot)
 
 imSize = s(1:3);
 
@@ -85,6 +85,13 @@ d3 = getROImean(interpTime3,range2,range1,selectedSlice,TR/interpolationFactor);
 d4 = getROImean(interpTime4,range2,range1,selectedSlice,TR/interpolationFactor);
 d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
 
+d0 = squeeze(mean(interpAbs,[1 2 3]));
+d1 = raw1(1,:)';
+d2 = raw2(2,:)';
+d3 = raw3(3,:)';
+d4 = raw4(4,:)';
+d5 = raw5(5,:)';
+
 % Determine component of svd corresponding to breathing flux (voxel-free)
 respcomp = [];
 
@@ -94,39 +101,44 @@ p3 = norm(diff(raw3(3,:)'),1);
 p4 = norm(diff(raw4(4,:)'),1);
 p5 = norm(diff(raw5(5,:)'),1);
 
+% Arrange other SVD components
+other_comps = cat(2,d1,d2,d3,d4,d5);
+
 respvol = [];
 
 normCheck = 0;
 if p1 > normCheck
-    respcomp = d1;
+    respcomp = raw1(1,:)';
     normCheck = p1;
     respvol = interpTime1;
     disp("resp comp = 1")
 end
 if p2 > normCheck
-    respcomp = d2;
+    respcomp = raw2(2,:)';
     normCheck = p2;
     respvol = interpTime2;
     disp("resp comp = 2")
 end
 if p3 > normCheck
-    respcomp = d3;
+    respcomp = raw3(3,:)';
     normCheck = p3;
     respvol = interpTime3;
     disp("resp comp = 3")
 end
 if p4 > normCheck
-    respcomp = d4;
+    respcomp = raw4(4,:)';
     normCheck = p4;
     respvol = interpTime4;
     disp("resp comp = 4")
 end
 if p5 > normCheck
-    respcomp = d5;
+    respcomp = raw5(5,:)';
     normCheck = p5;
     respvol = interpTime5;
     disp("resp comp = 5")
 end
+
+
 
 if doPlot
 

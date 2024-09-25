@@ -27,7 +27,7 @@ angleFile = 'sub-M02_ses-2122post_task-rest_run-1_part-phase_bold.nii';
 angleDir = '/srv/data/scratch/sub-M02/ses-2122post/func/';
 magDir = '/srv/data/scratch/sub-M02/ses-2122post/func/';
 magFile = 'sub-M02_ses-2122post_task-rest_run-1_part-mag_bold.nii';
-% 
+
 % if ~exist(angleFile)
 % 
 %     %% Read in scan info from template NIFTI
@@ -49,8 +49,8 @@ switch dataFormat
         
     case "nifti"
         % Get magnitude and phase data from the nifti files
-        [angleFile,angleDir] = uigetfile("*.nii","Select the Phase NIFTI File");
-        [magFile,magDir] = uigetfile("*.nii","Select the Magnitude NIFTI File");
+        %[angleFile,angleDir] = uigetfile("*.nii","Select the Phase NIFTI File");
+        %[magFile,magDir] = uigetfile("*.nii","Select the Magnitude NIFTI File");
         angleData = niftiread(fullfile(angleDir,angleFile));
         magnitudeData = niftiread(fullfile(magDir,magFile));
 
@@ -62,6 +62,8 @@ magnitudeData = rot90(magnitudeData);
 
 %% Ask User for the phys log file!
 [logFile,logDir] = uigetfile("*.log","Select the Relevant PhysLog File");
+
+%%
 physLogTable = readPhysLog(fullfile(logDir,logFile));
 
 %% Set scan info
@@ -88,7 +90,7 @@ mask0 = generateMask(magnitudeData(:,:,:,end), vsz, '-m -n -f 0.5');
 %% Choose inputImage and Reshape to prepare for the SVD
 inputImage = zeros(size(uphas));
 
-imageType = "harmonicField";
+imageType = "chi";
 
 switch imageType
     case "chi"
@@ -111,7 +113,10 @@ doPlot = true;
 plotSlice(phas,uphas,fl,harmfields,exampleSlice);
 
 %% Decompose the Image using the SVD
-[respvol,timeVector,zero_ord_vol] = getRespComp(inputImage,s,TR,interpolationFactor,doPlot);
+[respvol,timeVector,zero_ord_vol, other_comps] = getRespComp(inputImage,s,TR,interpolationFactor,doPlot);
+
+%% Test Slice TR
+% [respvol,timeVector,rawresp] = getRespCompSliceTR(inputImage,s,TR,interpolationFactor);
 
 %% Project Respiratory correlated field onto spherical harmonics
 
@@ -206,6 +211,10 @@ end
 
 toc
 
+%% Create Regressor Matrix
+regmat.reg = normalize(cat(2, volTR_coeffs, other_comps),1);
+save('regmatmtest.mat','-struct','regmat')
+
 %% Plot Each Coefficient of Varying Order (volume TR)
 plotSphericalHarmonics(volTR_coeffs,TR/interpolationFactor*(1:n_timepoints),'voltr_fig.pdf');
 
@@ -238,7 +247,7 @@ end
 c = c(1:2:end);
 r = r(1:2:end);
 t2 = t2(1:2:end)/2;
-scanStart = find(physLogTable.mark>20);
+scanStart = find(physLogTable.mark>2);
 t2 = t2(scanStart+1:end);
 [physLogResp,fh] = tapas_physio_filter_respiratory(r(scanStart+1:end),t2(2)-t2(1),[],true,true); 
 
@@ -263,7 +272,7 @@ volTime = timeVectorVol + (scanTime - phaseTimeVol) + doTRComp*1.15/19; % NEED
 
 ts_phase_derived = timeseries(respcompVOL, volTime);
 ts_physlog_derived = timeseries(physLogResp, physLogTime);
-dt = 0.575;
+dt = 1.15;
 
 phase_derived_times = volTime(1):dt:volTime(end-1);
 physlog_derived_times = physLogTime(1):dt:physLogTime(end-1);
@@ -274,6 +283,13 @@ ts_physlog_derived_rs = resample(ts_physlog_derived, physlog_derived_times);
 % Plot the processed respiratory phase (naive approach)
 filteredTrace = respcompVOL;% lowpass(respcompVOL,0.1,interpolationFactor/TR); % low pass filter to get the jumps out of the data
 respPhase = calculateRespPhase(ts_phase_derived_rs.Data, ts_phase_derived_rs.Time, true);
+
+breath_reg.reg = ts_physlog_derived_rs.Data;
+save('breath_reg.mat','-struct','breath_reg')
+
+%%
+figure();
+plot(respPhase)
 
 %% Pull in data from the figure separately
 fig_old = openfig('paper/Fig_7.fig');

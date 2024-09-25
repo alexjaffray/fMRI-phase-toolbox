@@ -81,7 +81,7 @@ if doHilbert
 %     ylabel('Phase (rad)');
     
     % Optionally, extract the respiratory frequency (we don't do this yet)
-    instantaneous_frequency = diff(unwrap(instantaneous_phase)) * fs / (2*pi);
+    % instantaneous_frequency = diff(unwrap(instantaneous_phase)) * fs / (2*pi);
 %     figure;
 %     plot(t(1:end-1), instantaneous_frequency);
 %     title('Instantaneous Respiratory Frequency');
