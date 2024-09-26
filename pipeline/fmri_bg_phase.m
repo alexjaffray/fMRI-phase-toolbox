@@ -11,7 +11,7 @@ clear all;
 close all;
 
 %%
-addpath('/srv/data/ajaffray/fMRI-phase-toolbox/');
+addpath(genpath('/srv/data/ajaffray/fMRI-phase-toolbox'));
 
 %%
 run('/srv/data/ajaffray/QSM/addpathqsm.m'); % change this to your own path where the QSM toolbox is stored
@@ -90,7 +90,7 @@ mask0 = generateMask(magnitudeData(:,:,:,end), vsz, '-m -n -f 0.5');
 %% Choose inputImage and Reshape to prepare for the SVD
 inputImage = zeros(size(uphas));
 
-imageType = "chi";
+imageType = "harmonicField";
 
 switch imageType
     case "chi"
