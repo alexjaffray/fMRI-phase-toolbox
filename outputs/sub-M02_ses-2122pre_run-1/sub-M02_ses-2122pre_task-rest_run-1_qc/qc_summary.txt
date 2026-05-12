@@ -1,0 +1,10 @@
+PhaseFile: /srv/data/ajaffray/fMRI-phase-toolbox/template/sub-M02_ses-2122pre_task-rest_run-1_part-phase_bold.nii
+MagnitudeFile: /srv/data/ajaffray/fMRI-phase-toolbox/template/sub-M02_ses-2122pre_task-rest_run-1_part-mag_bold.nii
+OutputDir: /srv/data/ajaffray/fMRI-phase-toolbox-v2/outputs/sub-M02_ses-2122pre_run-1
+TR: 1.15000069141388
+NumberOfRegressors: 21
+NumberOfVolumes: 260
+SelectedSvdComponent: 2
+RuntimeSeconds: 125.064278
+InputImage: harmonicField
+HarmonicOrder: 3
