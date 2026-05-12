@@ -69,7 +69,7 @@ timeVector = 0:TR/interpolationFactor:s(4)*TR;
 timeVector = timeVector(1:s(4)*interpolationFactor);
 
 % Define Ranges in the slice to look at Fluctuation and calculate roi means
-selectedSlice = 31;
+selectedSlice = 11;
 width = 8;
 height = 10;
 xmin = 45;
@@ -78,12 +78,12 @@ ymin = 63;
 range2 = xmin:(xmin+height);
 range1 = ymin:(ymin+width);
 
-d0 = getROImean(interpAbs,range2,range1,selectedSlice,TR/interpolationFactor);
-d1 = getROImean(interpTime1,range2,range1,selectedSlice,TR/interpolationFactor);
-d2 = getROImean(interpTime2,range2,range1,selectedSlice,TR/interpolationFactor);
-d3 = getROImean(interpTime3,range2,range1,selectedSlice,TR/interpolationFactor);
-d4 = getROImean(interpTime4,range2,range1,selectedSlice,TR/interpolationFactor);
-d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
+% d0 = getROImean(interpAbs,range2,range1,selectedSlice,TR/interpolationFactor);
+% d1 = getROImean(interpTime1,range2,range1,selectedSlice,TR/interpolationFactor);
+% d2 = getROImean(interpTime2,range2,range1,selectedSlice,TR/interpolationFactor);
+% d3 = getROImean(interpTime3,range2,range1,selectedSlice,TR/interpolationFactor);
+% d4 = getROImean(interpTime4,range2,range1,selectedSlice,TR/interpolationFactor);
+% d5 = getROImean(interpTime5,range2,range1,selectedSlice,TR/interpolationFactor);
 
 d0 = squeeze(mean(interpAbs,[1 2 3]));
 d1 = raw1(1,:)';
@@ -219,7 +219,7 @@ if doPlot
     % Plot the standard deviation of the qsm values obtained throughout the acquisition
     xRange = std(inputImage,0,4);
     figure(4);
-    imagesc(xRange(:,:,25)),colormap('hot');
+    imagesc(xRange(:,:,11)),colormap('hot');
     colorbar;
 end
 
