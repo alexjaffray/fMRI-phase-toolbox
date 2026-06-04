@@ -4,7 +4,7 @@ I've been a bit lazy in updating this package, but this is a v0.2 release of the
 
 Detection of respiration-induced field modulations in fMRI: A concurrent and navigator-free approach https://doi.org/10.1162/imag_a_00091 
 
-This v0.2 release cleans up a lot of older code and research scripts, and provides a configuration interface for setting up the method. I have been wanting to do this for a while, and also had been hearing about how good coding agents have gotten recently, so I decided to use this as a chance to both clean up the repo and try to see how working together with the machine goes. This is a work in progress, all feedback is welcome.
+This v0.2 release cleans up a lot of older code and research scripts, and provides a configuration interface for setting up the method. I have been wanting to do this for a while, and also had been hearing about how good coding agents have gotten recently, so I decided to use this as a chance to both clean up the repo and learn how to work together with the machine. This is a work in progress, all feedback is welcome.
 
 ## List of Changes against Initial Release
 
