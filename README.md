@@ -14,7 +14,7 @@ This v0.2 release cleans up a lot of older code and research scripts, and provid
 - Automatic QC figures, progress messages, and optional motion comparison
 - Legacy MATLAB source copied under `legacy/` for comparison
 
-## Core Features (Unchanged)
+## Core Features
 
 - QSM-backed phase unwrapping and background field removal
 - SVD-based respiratory component extraction
