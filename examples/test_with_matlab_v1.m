@@ -23,6 +23,9 @@ cfg.generateQc = true;
 cfg.echoTime = 0.030;
 cfg.fieldStrength = 3.0;
 cfg.gyromagneticRatio = 267.513;
+cfg.phaseInputUnits = "auto";
+cfg.phaseScale = pi / 2048;
+cfg.phaseOffset = -pi;
 cfg.rotate90 = false;
 
 cfg.inputImage = "harmonicField";

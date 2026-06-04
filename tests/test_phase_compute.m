@@ -44,6 +44,7 @@ classdef test_phase_compute < matlab.unittest.TestCase
             fields = fmriPhase.phase.computeHarmonicFields(phaseData, mask, params);
 
             testCase.verifyTrue(isfield(fields, 'phaseRadians'));
+            testCase.verifyTrue(isfield(fields, 'phaseScaling'));
             testCase.verifyTrue(isfield(fields, 'unwrappedPhase'));
             testCase.verifyTrue(isfield(fields, 'totalField'));
             testCase.verifyTrue(isfield(fields, 'localField'));
@@ -51,9 +52,59 @@ classdef test_phase_compute < matlab.unittest.TestCase
             testCase.verifyEqual(fields.mask, mask);
             testCase.verifySize(fields.harmonicField, size(phaseData));
         end
+
+        function autoDetectsRadianPhaseInput(testCase)
+            phaseData = reshape(linspace(-pi, pi, 24), [2, 2, 2, 3]);
+            mask = true(2, 2, 2);
+            params = testCase.defaultParams();
+            params.phaseInputUnits = "auto";
+            params.phaseScale = [];
+
+            fields = fmriPhase.phase.computeHarmonicFields(phaseData, mask, params);
+
+            testCase.verifyEqual(fields.phaseScaling.detectedUnits, "radians");
+            testCase.verifyEqual(fields.phaseRadians, phaseData, 'AbsTol', 1e-12);
+        end
+
+        function appliesExplicitPhaseScaling(testCase)
+            phaseData = reshape(0:23, [2, 2, 2, 3]);
+            mask = true(2, 2, 2);
+            params = testCase.defaultParams();
+            params.phaseInputUnits = "scaled";
+            params.phaseScale = 0.01;
+            params.phaseOffset = -0.5;
+
+            fields = fmriPhase.phase.computeHarmonicFields(phaseData, mask, params);
+
+            testCase.verifyEqual(fields.phaseScaling.detectedUnits, "scaled");
+            testCase.verifyEqual(fields.phaseRadians, double(phaseData) * 0.01 - 0.5, ...
+                'AbsTol', 1e-12);
+        end
+
+        function requiresScaleWhenAutoCannotDetectRadians(testCase)
+            phaseData = reshape(0:23, [2, 2, 2, 3]);
+            mask = true(2, 2, 2);
+            params = testCase.defaultParams();
+            params.phaseInputUnits = "auto";
+            params.phaseScale = [];
+
+            testCase.verifyError( ...
+                @() fmriPhase.phase.computeHarmonicFields(phaseData, mask, params), ...
+                'fmriPhase:phase:PhaseScaleRequired');
+        end
     end
 
     methods (Access = private)
+        function params = defaultParams(~)
+            params = struct( ...
+                'echoTime', 0.030, ...
+                'fieldStrength', 3.0, ...
+                'gyromagneticRatio', 267.513, ...
+                'voxelSize', [2 2 2], ...
+                'resharpRadii', [], ...
+                'resharpRegularization', 0.05);
+        end
+
         function writeMockFunction(testCase, filename, contents)
             fid = fopen(fullfile(testCase.MockDir, filename), 'w');
             testCase.assertGreaterThan(fid, 0);
