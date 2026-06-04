@@ -1,3 +1,6 @@
+% Example MATLAB script to test loading and visualizing fMRI phase-derived regressors including my own testing paths. 
+% Edit these to make them work for you
+
 close all;
 clc;
 
